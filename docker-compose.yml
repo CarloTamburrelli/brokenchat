@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  # Contenitore per PostgreSQL
+  postgres:
+    image: postgres:13
+    container_name: postgres_chat
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_password
+      POSTGRES_DB: chat_db
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chat-net
+
+  # Contenitore per il server Node.js con Express
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    container_name: node_backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: your_password
+      DB_NAME: chat_db
+    volumes:
+      - ./backend:/app
+    ports:
+      - 5000:5000
+    depends_on:
+      - postgres
+    networks:
+      - chat-net
+
+volumes:
+  postgres_data:
+
+networks:
+  chat-net:
+    driver: bridge
