@@ -286,9 +286,9 @@ function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen w-full">
       {/* Header */}
-      <div className="flex-[1]">
+      <div className="sticky top-0 bg-white text-center font-bold z-10">
         <Header chatName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
       </div>
 
@@ -351,7 +351,7 @@ function ChatPage() {
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
-<div className="flex-[7] p-4 overflow-y-auto text-left pl-2 pr-2 flex flex-col-reverse"
+<div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col-reverse"
 ref={chatContainerRef}
 onScroll={chatContainerScrollHandler}
 >
@@ -407,7 +407,7 @@ onScroll={chatContainerScrollHandler}
 
   
       {/* Barra chat input - Sempre fissa in basso */}
-      <div className="flex-[1] bg-gray-800 p-4">
+      <div className="sticky bottom-0 bg-gray-800 p-4 z-10">
         {/* Input e bottone Invia */}
         <div className="relative flex items-center gap-2 mb-2">
           {/* Modal delle emoticons */}

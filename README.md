@@ -7,8 +7,6 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 - sistema di ban
 - aggiungi lista utenti connessi e offline
 - aggiungi allegati
-- IMPOSTA LIMITE MASSIMO DI TEMPO CHAT :D
-// devi mettere bottone "nuovi messaggi!" quando ne arrivano e tu stai scrollando in alto, lo stai facendo ma non bene
 
 
 
