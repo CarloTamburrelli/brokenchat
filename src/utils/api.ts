@@ -1,5 +1,5 @@
 // api.ts (TypeScript)
-const BASE_URL = 'http://192.168.1.10:5000';
+const BASE_URL = 'http://192.168.1.11:5000';
 
 export const fetchWithPrefix = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${BASE_URL}${endpoint}`;

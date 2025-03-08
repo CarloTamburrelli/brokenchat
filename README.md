@@ -1,9 +1,15 @@
 # Broken Chat
 
+![alt text](preview.png "First preview app")
+
 Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 **TODO**
 
+- sistemare homepage:
+  - aggiungi slider per raggio
+  - aggiungi ordinamento per distanza e popolarita'
+  - aggiungi
 - sistema di ban
 - aggiungi lista utenti connessi e offline
 - aggiungi allegati

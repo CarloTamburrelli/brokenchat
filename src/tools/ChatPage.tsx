@@ -6,7 +6,7 @@ import { fetchWithPrefix } from '../utils/api';
 import io from 'socket.io-client';
 
 
-const socket = io('http://192.168.1.10:5000'); 
+const socket = io('http://192.168.1.11:5000'); 
 
 
 interface MessageData {
@@ -288,13 +288,13 @@ function ChatPage() {
   return (
     <div className="flex flex-col h-screen w-full">
       {/* Header */}
-      <div className="sticky top-0 bg-white text-center font-bold z-10">
+      <div className="sticky top-0 bg-white text-center font-bold z-5">
         <Header chatName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
       </div>
 
       {showNicknameModal && (
         <div
-        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20"
         onClick={() => setShowNicknameModal(false)} // Chiude la modal cliccando fuori
       >
         <div 

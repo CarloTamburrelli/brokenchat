@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 export default function Header({chatName='', onOpenNicknameModal = () => {}}: {chatName: string, onOpenNicknameModal: () => void}) {
   
   const navigation = [
-    { name: 'Cambia nome', href: '#', current: true, onClick: onOpenNicknameModal },
+    { name: 'Cambia Nickname', href: '#', current: true, onClick: onOpenNicknameModal },
     { name: 'Ritorna alla Home', href: '#', current: false, onClick: () => window.location.replace("/") },
   ]
   
@@ -56,7 +56,7 @@ export default function Header({chatName='', onOpenNicknameModal = () => {}}: {c
               </div>
             </div>
             {/* dropdown only mobile */}
-            <Menu as="div" className="block sm:hidden relative ml-3">
+            <Menu as="div" className="block sm:hidden relative ml-3 text-left">
                 <MenuButton className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden">
                     <Bars3Icon aria-hidden="true" className="block size-6 group-data-open:hidden" />
                 </MenuButton>
