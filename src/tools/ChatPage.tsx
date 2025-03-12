@@ -45,6 +45,7 @@ function ChatPage() {
   const [message, setMessage] = useState<string>('');
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [nickname, setNickname] = useState<string>('');
+  const [userId, setUserId] = useState<number | null>(null);
   const [nicknameTmp, setTmpNickname] = useState<string>('');
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -81,20 +82,23 @@ function ChatPage() {
         const response_json = await fetchWithPrefix(`/chat/${chatId}?token=${token ? token : ''}`);
         //se passo questo senza errori significa che sono abilitato a visualizzare questa chat
         setChatData({
-          name: response_json.name,
-          isPrivate: response_json.is_private,
+          name: response_json.chat.name,
+          isPrivate: response_json.chat.is_private,
         });
 
-        setNickname(response_json.nickname);
+        setNickname(response_json.chat.nickname);
+        setUserId(response_json.chat.user_id);
 
-        if (response_json.user_id === 0) {
+        if (response_json.chat.user_id === 0) {
           //devi far apparire la modal che ti chiede che nome vuoi inserire
           setShowModal(true);
           return;
         }
 
+        console.log("recupero messaggi", response_json.messages)
+        setMessages(response_json.messages);
 
-        socket.emit('join-room', chatId, response_json.nickname);
+        socket.emit('join-room', chatId, response_json.chat.nickname);
 
         socket.off('broadcast_messages');
 
@@ -183,14 +187,14 @@ function ChatPage() {
       inputRef.current?.focus();
       inputRef!.current!.style.height = "auto"; // Resetta altezza per calcolare bene
       const newMessage = { nickname: nickname, text: message, id: generateUniqueId() }; // Simuliamo il proprio nickname
-      socket.emit('message', chatId, newMessage); // ✅ Invia il messaggio al server
+      socket.emit('message', chatId, newMessage, userId); // ✅ Invia il messaggio al server
       setMessage(''); // Pulisci l'input
       setShowEmojis(false);
       // Mantieni il focus sulla textarea
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        messagesEndRef.current?.scrollTo({ behavior: "instant" });
         inputRef.current?.focus();
-      }, 0); // Timeout breve per aspettare l'aggiornamento dello stato
+      }, 500); // Timeout breve per aspettare l'aggiornamento dello stato
 
     }
   };
@@ -275,7 +279,7 @@ function ChatPage() {
   }
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollTo({ behavior: "smooth" });
     setIsAtBottom(true);
     setShowNewMessageBtn(false);
   };
@@ -346,12 +350,12 @@ function ChatPage() {
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
-<div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col-reverse"
+<div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col"
 ref={chatContainerRef}
 onScroll={chatContainerScrollHandler}
 >
   {/* Questo div serve per far scrollare automaticamente in basso */}
-  <div ref={messagesEndRef} />
+  <div ref={messagesEndRef} className="order-last" />
   <div>
     {messages.map((msg) => (
       <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
@@ -421,7 +425,7 @@ onScroll={chatContainerScrollHandler}
           value={message}
           onChange={handleInputChange}
           onFocus={() => setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            messagesEndRef.current?.scrollTo({ behavior: "smooth" });
           }, 1000)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

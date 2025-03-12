@@ -152,7 +152,8 @@ app.get('/chat/:chatId', async (req, res) => {
          c.is_private, 
          CASE WHEN u.id IS NOT NULL THEN u.id ELSE 0 END as user_id, 
          CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END as already_in,
-         u.nickname  
+         u.nickname,
+         u.id as user_id  
        FROM chats as c
        LEFT JOIN users as u ON u.token = $2 
        LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
@@ -168,6 +169,15 @@ app.get('/chat/:chatId', async (req, res) => {
     // Restituisci i dati della chat
     const chatData = result.rows[0];
 
+    const messagesResult = await pool.query(
+      `SELECT m.id, u.nickname, m.message 
+       FROM messages as m
+       JOIN users as u ON u.id = m.user_id 
+       WHERE m.chat_id = $1  
+       ORDER BY m.created_at ASC`, 
+      [chatId]
+    );
+
     // Se la chat è privata e l'utente non è già dentro, bloccalo
     if (chatData.is_private && chatData.already_in === 0) {
       return res.status(403).json({ message: 'Accesso negato: questa chat è privata' });
@@ -180,7 +190,10 @@ app.get('/chat/:chatId', async (req, res) => {
 
     }
 
-    res.status(200).json(chatData);
+    res.status(200).json({
+      chat: chatData,
+      messages: messagesResult.rows
+    });
   } catch (err) {
     console.error('Errore nel recuperare i dati della chat:', err);
     res.status(500).json({ message: 'Errore nel recuperare i dati della chat' });
@@ -250,10 +263,42 @@ io.on('connection', (socket) => {
   });
 
   // Ascolta per l'evento "message" (invio di un messaggio)
-  socket.on('message', (chatId, message) => {
+  socket.on('message', async (chatId, newMessage, userId) => {
     // Invia il messaggio a tutti gli utenti della stanza
-    io.to(chatId).emit('broadcast_messages', message);
-    console.log(`Messaggio inviato alla chat ${chatId}: ${message}`);
+    try {
+      // Salva il messaggio nel database
+      await pool.query(
+        'INSERT INTO messages (chat_id, user_id, message) VALUES ($1, $2, $3)',
+        [chatId, userId, newMessage.text]
+      );
+      
+      // Emetti il messaggio alla chat
+      io.to(chatId).emit('broadcast_messages', newMessage);
+  
+      // Controlla il numero di messaggi nella chat
+      const result = await pool.query(
+        'SELECT COUNT(*) FROM messages WHERE chat_id = $1',
+        [chatId]
+      );
+      const messageCount = parseInt(result.rows[0].count, 10);
+  
+      // Se ci sono più di 100 messaggi, elimina il primo
+      if (messageCount > 50) {
+        await pool.query(`
+          DELETE FROM messages
+          WHERE id = (
+            SELECT id FROM messages
+            WHERE chat_id = $1
+            ORDER BY id ASC
+            LIMIT 1
+          )`, [chatId]);
+        console.log(`Il primo messaggio è stato eliminato dalla chat ${chatId}`);
+      }
+  
+      console.log(`Messaggio inviato alla chat ${chatId}: ${newMessage}`);
+    } catch (err) {
+      console.error('Errore nel salvataggio del messaggio:', err);
+    }
   });
   
 
