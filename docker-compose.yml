@@ -30,7 +30,7 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - 5000:5000
+      - 5002:5002
     depends_on:
       - postgres
     networks:

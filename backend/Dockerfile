@@ -10,11 +10,13 @@ COPY package*.json ./
 # Installa le dipendenze
 RUN npm install
 
+RUN npm install -g nodemon
+
 # Copia tutto il codice dell'app nella cartella di lavoro
 COPY . .
 
 # Espone la porta 5000
-EXPOSE 5000
+EXPOSE 5002
 
 # Avvia il server
 CMD ["npm", "start"]

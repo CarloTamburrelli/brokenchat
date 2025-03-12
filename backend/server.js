@@ -276,7 +276,7 @@ io.on('connection', (socket) => {
 });
 
 // Avvia il server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5002;
 server.listen(PORT, () => {
   console.log(`Server in esecuzione sulla porta ${PORT}`);
 });

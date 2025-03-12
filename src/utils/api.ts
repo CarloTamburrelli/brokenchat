@@ -1,8 +1,8 @@
 // api.ts (TypeScript)
-const BASE_URL = 'http://192.168.1.11:5000';
+import { BROKEN_CHAT_BASE_URL } from "./consts";
 
 export const fetchWithPrefix = async (endpoint: string, options: RequestInit = {}) => {
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${BROKEN_CHAT_BASE_URL}${endpoint}`;
   
   try {
     const response = await fetch(url, options);

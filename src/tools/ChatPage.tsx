@@ -4,9 +4,10 @@ import Header from '../base/header';
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
 import io from 'socket.io-client';
+import { BROKEN_CHAT_BASE_URL } from "../utils/consts";
 
 
-const socket = io('http://192.168.1.11:5000'); 
+const socket = io(BROKEN_CHAT_BASE_URL); 
 
 
 interface MessageData {
@@ -159,20 +160,14 @@ function ChatPage() {
     console.log(-scrollTop, scrollHeight, clientHeight);
 
     if (-scrollTop > 0) {
-      console.log("entro?");
       setShowNewMessageBtn(true);
     } else {
-      console.log("non entro");
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
 
 
   }, [messages]);
 
-  /*const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessages([...messages, newMessage]);
-    setNewMessage('');
-  };*/
   
   const generateUniqueId = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -449,22 +444,7 @@ onScroll={chatContainerScrollHandler}
             placeholder="Scrivi un messaggio..."
           />*/}
           <button onClick={sendMessage} className="bg-blue-500 text-white p-2 rounded">Invia</button>            
-        </div>
-
-        {/* Bottoni azione */}
-        {/*<div className="flex justify-around">
-          <button className="flex items-center gap-2 text-white bg-gray-700 p-2 rounded">
-            📷 
-          </button>
-          <button className="flex items-center gap-2 text-white bg-gray-700 p-2 rounded">
-            🎥 
-          </button>
-          <button className="flex items-center gap-2 text-white bg-gray-700 p-2 rounded">
-            📄 
-          </button>
-        </div>*/}
-
-        
+        </div>        
       </div>
     </div>
   );
