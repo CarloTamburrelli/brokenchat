@@ -54,6 +54,7 @@ function ChatPage() {
   const [showEmojis, setShowEmojis] = useState(false);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
   const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true);
   const maxHeight = 150;
 
   const emojis = [
@@ -154,21 +155,29 @@ function ChatPage() {
 
 
   useEffect(() => {
-    // Se l'utente è in fondo, scrolla automaticamente ai nuovi messaggi
 
     if (!chatContainerRef.current) return;
 
-    // Se è in fondo, nascondiamo il bottone
-    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-
-    console.log(-scrollTop, scrollHeight, clientHeight);
-
-    if (-scrollTop > 0) {
-      setShowNewMessageBtn(true);
-    } else {
+    if (firstLoad) {
+      // Se è il primo caricamento, scrolla sempre in fondo
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+      setFirstLoad(false); // Dopo il primo scroll, disattiva il comportamento
+    } else {
 
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+
+      const offset = 80
+
+
+      console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
+
+
+      if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      } else {
+        setShowNewMessageBtn(true);
+      }
+    }
 
   }, [messages]);
 
@@ -192,8 +201,8 @@ function ChatPage() {
       setShowEmojis(false);
       // Mantieni il focus sulla textarea
       setTimeout(() => {
-        messagesEndRef.current?.scrollTo({ behavior: "instant" });
         inputRef.current?.focus();
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 500); // Timeout breve per aspettare l'aggiornamento dello stato
 
     }
@@ -244,9 +253,11 @@ function ChatPage() {
     // Se è in fondo, nascondiamo il bottone
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
 
-    if (-scrollTop < 10) {
-      console.log(scrollTop, scrollHeight, clientHeight);
-      console.log("entross?");
+    const offset = 80
+
+    console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
+
+    if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
       setShowNewMessageBtn(false);
     }
 
@@ -279,7 +290,7 @@ function ChatPage() {
   }
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollTo({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setIsAtBottom(true);
     setShowNewMessageBtn(false);
   };
@@ -350,38 +361,38 @@ function ChatPage() {
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
-<div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col"
-ref={chatContainerRef}
-onScroll={chatContainerScrollHandler}
->
-  {/* Questo div serve per far scrollare automaticamente in basso */}
-  <div ref={messagesEndRef} className="order-last" />
-  <div>
-    {messages.map((msg) => (
-      <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
-        {msg.alert_message ? (
-          <span>{msg.message}</span>
-        ) : (
-          <>
-            <strong className="text-blue-400">{msg.nickname}: </strong>
-            <span className="p-1">{msg.message}</span>
-          </>
-        )}
-      </div>
-    ))}
+  <div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col"
+    ref={chatContainerRef}
+    onScroll={chatContainerScrollHandler}
+  >
+    {/* Questo div serve per far scrollare automaticamente in basso */}
+    <div ref={messagesEndRef} className="order-last" />
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
+          {msg.alert_message ? (
+            <span>{msg.message}</span>
+          ) : (
+            <>
+              <strong className="text-blue-400">{msg.nickname}: </strong>
+              <span className="p-1">{msg.message}</span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+
+
+    {/* Bottone per i nuovi messaggi */}
+    {showNewMessageBtn && (
+      <button
+        className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
+        onClick={scrollToBottom}
+      >
+        ⬇️ Nuovi messaggi
+      </button>
+    )}
   </div>
-
-
-  {/* Bottone per i nuovi messaggi */}
-  {showNewMessageBtn && (
-        <button
-          className="absolute left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
-          onClick={scrollToBottom}
-        >
-          ⬇️ Nuovi messaggi
-        </button>
-      )}
-</div>
 
 
       {/* Lista delle emoticons */}
@@ -425,8 +436,8 @@ onScroll={chatContainerScrollHandler}
           value={message}
           onChange={handleInputChange}
           onFocus={() => setTimeout(() => {
-            messagesEndRef.current?.scrollTo({ behavior: "smooth" });
-          }, 1000)}
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 500)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
