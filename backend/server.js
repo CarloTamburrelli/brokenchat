@@ -34,7 +34,7 @@ app.get('/', async (req, res) => {
 
 // Rotta per creare una nuova chat
 app.post('/create-chat', async (req, res) => {
-  const { chatName, yourName, isPrivate, token } = req.body;
+  const { chatName, yourName, description, token, latitude, longitude } = req.body;
 
   try {
     // Verifica se esiste già un utente con quel token
@@ -74,8 +74,8 @@ app.post('/create-chat', async (req, res) => {
 
     // Salva la chat nel database PostgreSQL
     const chatResult = await pool.query(
-      'INSERT INTO chats (name, is_private) VALUES ($1, $2) RETURNING id',
-      [chatName, isPrivate]
+      'INSERT INTO chats (name, description, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING id',
+      [chatName, description, latitude, longitude]
     );
 
     const chatId = chatResult.rows[0].id;
@@ -94,51 +94,173 @@ app.post('/create-chat', async (req, res) => {
   }
 });
 
+// Funzione per calcolare la distanza in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  // Verifica che le coordinate siano numeriche e non NaN
+  if (
+    isNaN(lat1) || isNaN(lon1) ||
+    isNaN(lat2) || isNaN(lon2)
+  ) {
+    return NaN;  // Ritorna NaN se una delle coordinate non è valida
+  }
+
+
+  // Converti latitudine e longitudine da gradi a radianti
+  const R = 6371; // Raggio della Terra in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  let distance = Math.round(R * c); // Distanza in km
+
+  // Imposta la distanza minima a 1 km
+  if (distance < 1) {
+    distance = 1;
+  }
+
+  return distance; // Ritorna la distanza
+}
+
+
 app.get('/get-user', async (req, res) => {
-  const { token } = req.query;  // Prendi il token dalla query
+  const { token, lat, lon } = req.query;  // Prendi i parametri dalla query
 
   try {
-    // Query per ottenere le chat a cui partecipa l'utente
-    const result = await pool.query(
-      `SELECT
-          u.nickname AS username,
-          r.role_type AS role,
-          c.id AS chatId,
-          c.name AS chatName,
-          c.is_private AS isPrivate
-      FROM
-          users u
-      JOIN
-          roles r ON u.id = r.user_id
-      JOIN
-          chats c ON r.chat_id = c.id
-      WHERE
-          u.token = $1`,
-      [token]  // Token dell'utente
+    // Cerca l'utente con il token nel database
+    const userResult = await pool.query(
+      `SELECT u.nickname 
+       FROM users u
+       WHERE u.token = $1`,
+      [token]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Utente non trovato o token non valido' });
+    let nickname = null; //nome utente se gia' registrato
+    let userChats = null; //stanze dove ha fatto l'accesso
+
+    if (userResult.rows.length !== 0) {
+      // Se l'utente esiste
+      
+      // Prendi nickname e posizione attuale
+      nickname = userResult.rows[0].nickname;
+      
+
+      // Se latitudine e longitudine sono presenti, aggiorna la posizione dell'utente
+      if (lat && lon) {
+        
+        console.log(lat, lon, "yoos");
+
+
+        await pool.query(
+          `UPDATE users SET latitude = $1, longitude = $2 WHERE token = $3`,
+          [lat, lon, token]
+        );
+      }
+
+      const userChatsResult = await pool.query(
+        `SELECT c.id, c.name, c.latitude, c.longitude
+         FROM chats c
+         JOIN roles r ON c.id = r.chat_id
+         JOIN users u ON u.id = r.user_id
+         WHERE u.token = $1`,
+        [token]  // Token dell'utente
+      );
+
+      userChats = userChatsResult.rows;
+
+
+      const allChatsResult = await pool.query(
+        `SELECT c.*
+         FROM chats c`
+      );
+  
+      const allChats = allChatsResult.rows;
+  
+      // Liste separate per le chat a cui l'utente ha partecipato e le chat limitrofe
+      const nearbyChatsList = {};
+  
+      // Loop per calcolare la distanza tra l'utente e ogni chat
+      allChats.forEach((chat) => {
+        const distance = calculateDistance(lat, lon, chat.latitude, chat.longitude);
+  
+        const chatData = {
+          id: chat.id,
+          name: chat.name,
+          popularity: 35, 
+          description: chat.description
+        };
+  
+          if (!nearbyChatsList[distance]) {
+            nearbyChatsList[distance] = [];
+          }
+          nearbyChatsList[distance].push(chatData);
+  
+      });
+
+      res.status(200).json({
+          nickname,
+          userChats: userChats,  // Chat a cui l'utente partecipa
+          nearbyChats: nearbyChatsList,  // Chat limitrofe
+      });
+  
+    } else {
+
+      //se l'utente non esiste
+      if (lat && lon) {
+        const allChatsResult = await pool.query(
+          `SELECT c.*
+           FROM chats c`
+        );
+    
+        const allChats = allChatsResult.rows;
+    
+        // Liste separate per le chat a cui l'utente ha partecipato e le chat limitrofe
+        const nearbyChatsList = {};
+    
+        // Loop per calcolare la distanza tra l'utente e ogni chat
+        allChats.forEach((chat) => {
+          const distance = calculateDistance(lat, lon, chat.latitude, chat.longitude);
+    
+          const chatData = {
+            id: chat.id,
+            name: chat.name,
+            popularity: 35, 
+            description: chat.description
+          };
+    
+            if (!nearbyChatsList[distance]) {
+              nearbyChatsList[distance] = [];
+            }
+            nearbyChatsList[distance].push(chatData);
+    
+        });
+
+        res.status(200).json({
+            nickname: null,
+            nearbyChats: nearbyChatsList,  // Chat limitrofe
+        });
+
+      } else {
+
+        res.status(200).json({
+          nickname: null,
+          popularChats: [],  // Chat limitrofe
+        });
+
+      }
+
     }
-
-    // Restituisci l'utente e le chat a cui partecipa
-    const userData = result.rows.map(row => ({
-      role: row.role,
-      chatId: row.chatid,
-      chatName: row.chatname,
-      isPrivate: row.isprivate,
-      chatLink: `/chat/${row.chatid}`  // Link per accedere alla chat
-    }));
-
-    const nickname = result.rows[0].username;
-
-
-    res.status(200).json({ userData, nickname});
+    
   } catch (err) {
     console.error('Errore nel recupero dell\'utente:', err);
     res.status(500).json({ message: 'Errore nel recupero dell\'utente' });
   }
 });
+
 
 app.get('/chat/:chatId', async (req, res) => {
   const { chatId } = req.params; // Recupera chatId dall'URL
@@ -255,11 +377,27 @@ io.on('connection', (socket) => {
 
   // Ascolta per l'evento "join-room" (entrata nella chat)
   socket.on('join-room', (chatId, nickname) => {
+    if (socket.chatId) {
+      // ⚠️ L'utente sta cambiando chat, quindi esce dalla precedente
+      socket.leave(socket.chatId);
+      io.to(socket.chatId).emit('alert_message', `L'utente ${socket.nickname} si è disconnesso dalla chat!`);
+    }
+
     socket.chatId = chatId;
     socket.nickname = nickname;
     socket.join(chatId);
-    console.log(`L'utente ${nickname} si e' connesso alla chat!`);
+    console.log(`L'utente ${nickname} si e' connesso alla chat ${chatId}!`);
     io.to(chatId).emit('alert_message', `L'utente ${nickname} si e' connesso alla chat!`);
+  });
+
+
+  socket.on('leave-room', (chatId, nickname) => {
+    console.log('Un utente si è disconnessos');
+    if (socket.chatId && socket.nickname) {
+      io.to(socket.chatId).emit('alert_message', `L'utente ${socket.nickname} si è disconnesso dalla chat!`);
+      socket.leave(socket.chatId);
+      socket.chatId = null; // Rimuoviamo l'ID della chat attuale
+    }
   });
 
   // Ascolta per l'evento "message" (invio di un messaggio)
@@ -298,16 +436,6 @@ io.on('connection', (socket) => {
       console.log(`Messaggio inviato alla chat ${chatId}: ${newMessage}`);
     } catch (err) {
       console.error('Errore nel salvataggio del messaggio:', err);
-    }
-  });
-  
-
-  // Gestisci la disconnessione
-  socket.on('disconnect', (chatId, nickname) => {
-    console.log('Un utente si è disconnesso');
-    //io.to(chatId).emit('alert_message', `L'utente ${nickname} si e' disconnesso dalla chat!`);
-    if (socket.chatId && socket.nickname) {
-      io.to(socket.chatId).emit('alert_message', `L'utente ${socket.nickname} si è disconnesso dalla chat!`);
     }
   });
 

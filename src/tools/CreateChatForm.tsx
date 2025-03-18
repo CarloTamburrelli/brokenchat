@@ -2,20 +2,26 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from "../utils/api";
+import { getPosition } from "../utils/geolocation";
+
 
 // Tipi per i dati del form
 interface ChatData {
   chatName: string;
   yourName: string;
-  isPrivate: boolean;
+  //isPrivate: boolean;
   token?: string;
+  description: string;
+  latitude: number;
+  longitude: number;
 }
 
 function CreateChatForm() {
   const [isRegistred, setIsRegistred] = useState<boolean>(false);
   const [chatName, setChatName] = useState<string>("");
   const [yourName, setYourName] = useState<string>("");
-  const [isPrivate, setIsPrivate] = useState<boolean>(false);
+  //const [isPrivate, setIsPrivate] = useState<boolean>(false);
+  const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -59,20 +65,25 @@ function CreateChatForm() {
 
     if (!validateForm()) return;
 
-    let requestBody: ChatData = {
-      chatName,
-      yourName,
-      isPrivate,
-    };
-    
-    const token = localStorage.getItem('authToken');
-    
-    if (token) {
-      requestBody = { ...requestBody, token };  // Aggiungi il token se presente
-    }
-
     try {
-      // Invia la richiesta POST al backend
+
+      const position = await getPosition();
+
+      let requestBody: ChatData = {
+        chatName,
+        yourName,
+        //isPrivate,
+        description,
+        latitude: position.latitude, // Aggiungi la latitudine
+        longitude: position.longitude, // Aggiungi la longitudine
+      };
+
+      const token = localStorage.getItem('authToken');
+
+      if (token) {
+        requestBody = { ...requestBody, token };
+      }
+
       const response_json = await fetchWithPrefix("/create-chat", {
         method: "POST",
         headers: {
@@ -90,7 +101,7 @@ function CreateChatForm() {
 
       // Resetta il form (opzionale)
       setChatName("");
-      setIsPrivate(false);
+      //setIsPrivate(false);
     } catch (error: any) {
       // Gestisci errori nel frontend
       setError(error.message);
@@ -99,18 +110,18 @@ function CreateChatForm() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center mt-5">
+    <div className="flex flex-col justify-center items-center mt-5 ">
       <Link to="/">
         <img src={Logo} />
       </Link>
-      <form onSubmit={handleSubmit} className="mt-5">
+      <form onSubmit={handleSubmit} className="mt-5 w-full p-2">
         <div className="flex flex-col items-center gap-4 justify-center">
         {isRegistred ? <span>Nickname attuale: <span className="font-bold">{yourName}</span></span> : <input
             type="text"
             placeholder="Your Name"
             value={yourName}
             onChange={(e) => setYourName(e.target.value)}
-            className="p-2 border rounded w-full md:w-auto"
+            className="p-2 border rounded w-full md:w-[400px]"
           />}
           
           <input
@@ -119,10 +130,16 @@ function CreateChatForm() {
             placeholder="Chat Name"
             value={chatName}
             onChange={(e) => setChatName(e.target.value)}
-            className="p-2 border rounded w-full md:w-auto"
+            className="p-2 border rounded w-full md:w-[400px]"
           />
 
-          <label className="flex items-center gap-2">
+          <textarea
+            placeholder="Chat Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="p-2 border rounded-au w-full md:w-[400px] h-32"
+          />
+          {/*<label className="flex items-center gap-2">
             <span>Private:</span>
             <input
               type="checkbox"
@@ -130,7 +147,7 @@ function CreateChatForm() {
               onChange={() => setIsPrivate(!isPrivate)}
               className="accent-blue-500 w-5 h-5"
             />
-          </label>
+          </label>*/}
         </div>
 
         <button

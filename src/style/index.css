@@ -6,3 +6,8 @@
 #root {
     padding: 0 !important;
 }
+
+
+body {               
+    overscroll-behavior: contain;
+  }

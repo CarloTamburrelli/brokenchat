@@ -3,11 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import Header from '../base/header';
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
-import io from 'socket.io-client';
-import { BROKEN_CHAT_BASE_URL } from "../utils/consts";
 
-
-const socket = io(BROKEN_CHAT_BASE_URL); 
+import { socket } from "../utils/socket"; // Importa il socket
 
 
 interface MessageData {
@@ -71,13 +68,12 @@ function ChatPage() {
     }, 300); // Tempo in ms che l'emoji rimane ingrandita
   };
   
-
   useEffect(() => {
+
     if (!chatId) return;
 
 
     const fetchChatData = async (token: string | null) => {
-
 
       try {
         const response_json = await fetchWithPrefix(`/chat/${chatId}?token=${token ? token : ''}`);
@@ -87,19 +83,32 @@ function ChatPage() {
           isPrivate: response_json.chat.is_private,
         });
 
-        setNickname(response_json.chat.nickname);
-        setUserId(response_json.chat.user_id);
+        console.log(response_json)
+        console.log("VA BENE???", response_json.chat.user_id);
 
-        if (response_json.chat.user_id === 0) {
+        if (response_json.chat.user_id === null) {
           //devi far apparire la modal che ti chiede che nome vuoi inserire
           setShowModal(true);
           return;
         }
 
-        console.log("recupero messaggi", response_json.messages)
+        setNickname(response_json.chat.nickname);
+        setUserId(response_json.chat.user_id);
+
+        
         setMessages(response_json.messages);
 
-        socket.emit('join-room', chatId, response_json.chat.nickname);
+        if (socket.connected) {
+          console.log("Socket gia' connesso!")
+          socket.emit('join-room', chatId, response_json.chat.nickname);
+        } else {
+          console.log("Socket ancora da connettere!")
+          socket.connect();
+          socket.on('connect', () => {
+            console.log("Socket connesso, ora emetto join-room");
+            socket.emit('join-room', chatId, response_json.chat.nickname);
+          });
+        }
 
         socket.off('broadcast_messages');
 
@@ -133,6 +142,13 @@ function ChatPage() {
           )
         });
 
+        socket.on("disconnect", (reason) => {
+          console.log("Socket disconnesso:", reason);
+          if (reason === "io server disconnect") {
+            socket.connect(); // Riconnetti solo se il server ha disconnesso
+          }
+        });
+
 
       } catch (error: any) {
         setError(error.message);
@@ -147,7 +163,8 @@ function ChatPage() {
 
     return () => {
       // Cleanup: rimuovi il listener quando il componente si smonta
-      socket.disconnect()
+      //socket.disconnect()
+      socket.emit("leave-room", chatId, nickname);
       socket.off('broadcast_messages');
       socket.off('alert_message');
     };
@@ -169,7 +186,7 @@ function ChatPage() {
       const offset = 80
 
 
-      console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
+      console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
 
 
       if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
@@ -255,7 +272,7 @@ function ChatPage() {
 
     const offset = 80
 
-    console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
+    //console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
 
     if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
       setShowNewMessageBtn(false);
@@ -365,9 +382,7 @@ function ChatPage() {
     ref={chatContainerRef}
     onScroll={chatContainerScrollHandler}
   >
-    {/* Questo div serve per far scrollare automaticamente in basso */}
-    <div ref={messagesEndRef} className="order-last" />
-    <div>
+    <div className=' bg-teal-300' style={{ marginTop: '500px' }}>
       {messages.map((msg) => (
         <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
           {msg.alert_message ? (
@@ -380,6 +395,7 @@ function ChatPage() {
           )}
         </div>
       ))}
+    <div ref={messagesEndRef} className="order-last" />
     </div>
 
 
