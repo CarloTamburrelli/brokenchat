@@ -16,7 +16,7 @@ RUN npm install -g nodemon
 COPY . .
 
 # Espone la porta 5000
-EXPOSE 5002
+EXPOSE 5000
 
 # Avvia il server
 CMD ["npm", "start"]

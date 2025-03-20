@@ -84,7 +84,6 @@ function ChatPage() {
         });
 
         console.log(response_json)
-        console.log("VA BENE???", response_json.chat.user_id);
 
         if (response_json.chat.user_id === null) {
           //devi far apparire la modal che ti chiede che nome vuoi inserire
@@ -100,13 +99,13 @@ function ChatPage() {
 
         if (socket.connected) {
           console.log("Socket gia' connesso!")
-          socket.emit('join-room', chatId, response_json.chat.nickname);
+          socket.emit('join-room', chatId, response_json.chat.nickname, response_json.chat.user_id);
         } else {
           console.log("Socket ancora da connettere!")
           socket.connect();
           socket.on('connect', () => {
             console.log("Socket connesso, ora emetto join-room");
-            socket.emit('join-room', chatId, response_json.chat.nickname);
+            socket.emit('join-room', chatId, response_json.chat.nickname, response_json.chat.user_id);
           });
         }
 
@@ -128,14 +127,16 @@ function ChatPage() {
 
         socket.off('alert_message');
 
-        socket.on('alert_message', (message_str: string) => {
+        socket.on('alert_message', (data: any) => {
+          const { message, users } = data;
+          console.log("utenti collegat", users)
 
           setMessages(
             (prevMessages) => [...prevMessages,
               { 
                 id: generateUniqueId(),
                 nickname: null, 
-                message: message_str,
+                message: message,
                 alert_message: true
               }
             ]
@@ -147,6 +148,14 @@ function ChatPage() {
           if (reason === "io server disconnect") {
             socket.connect(); // Riconnetti solo se il server ha disconnesso
           }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            socket.emit('leave-room', chatId );
+        });
+
+        window.addEventListener('pagehide', () => {
+          socket.emit('leave-room', chatId );
         });
 
 
@@ -164,8 +173,9 @@ function ChatPage() {
     return () => {
       // Cleanup: rimuovi il listener quando il componente si smonta
       //socket.disconnect()
-      socket.emit("leave-room", chatId, nickname);
+      socket.emit("leave-room", chatId);
       socket.off('broadcast_messages');
+      socket.off('join-room');
       socket.off('alert_message');
     };
   }, [chatId]);
@@ -382,7 +392,7 @@ function ChatPage() {
     ref={chatContainerRef}
     onScroll={chatContainerScrollHandler}
   >
-    <div className=' bg-teal-300' style={{ marginTop: '500px' }}>
+    <div style={{ marginTop: '500px' }}>
       {messages.map((msg) => (
         <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
           {msg.alert_message ? (

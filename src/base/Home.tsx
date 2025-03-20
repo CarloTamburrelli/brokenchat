@@ -1,23 +1,20 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
 import ChatList from '../base/ChatList';
-import { getPosition } from '../utils/geolocation';
-
-interface InfoChat {
-  chatId: number;
-  chatName: string;
-  role: number;
-  isPrivate: boolean;
-  chatLink: string;
-}
+import { useLocation } from "../base/LocationContext"; // Usa il contesto della posizione
+import my_messages from '../assets/my_messages.png';
+import FilterMenu from '../tools/FilterMenu';
+import LocationRequestButton from "../tools/LocationRequestButton";
 
 type Chatroom = {
   id: string;
   name: string;
   popularity: number;
   description: string;
+  role_type: number;
+  last_access: string;
 };
 
 type GroupedChats = Record<number, Chatroom[]>;
@@ -26,50 +23,96 @@ type GroupedChats = Record<number, Chatroom[]>;
 
 export default function Home() {
 
-  const [chat, setUserData] = useState<InfoChat[]>([]);
-  const [userName, setNickName] = useState<string>("");
-  const [groupedChats, setGroupedChats] = useState<GroupedChats>({});
+  const [nickname, setNickName] = useState<string>("");
+  const [nearbyChats, setNearbyChats] = useState<GroupedChats>({});  // Oggetto vuoto per nearbyChats
+  const [popularChats, setPopularChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
+  const [myChats, setMyChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const { lat, lon, error } = useLocation(); // Recupera latitudine e longitudine
+  const prevFilter = useRef<string | null>(null);
 
+  const getUserDetailsInit = async () => {
 
-  const getUserDetails = async () => {
+    if (lat === null && lon === null && error === null) {
+      return;
+    }
+
     setLoading(true);
     const token = localStorage.getItem('authToken');  // Assicura che token sia una stringa
 
-    let latitude: number | null = null;
-    let longitude: number | null = null;
-
     try {
-      // Tenta di ottenere la posizione
-      const position = await getPosition();
-      latitude = position.latitude;
-      longitude = position.longitude;
-    } catch (error: any) {
-        if (error.code === error.PERMISSION_DENIED) {
-          console.error("L'utente ha negato l'accesso alla posizione.");
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          console.error("La posizione non è disponibile.");
-        } else if (error.code === error.TIMEOUT) {
-          console.error("Timeout nella richiesta della posizione.");
-        } else {
-          console.error("Errore sconosciuto:", error);
-        }
-      }
-
-  try {
     // Invia la richiesta con o senza latitudine/longitudine
-    const url = latitude && longitude
-      ? `/get-user?token=${token}&lat=${latitude}&lon=${longitude}`
-      : `/get-user?token=${token}`;
 
-      const response = await fetchWithPrefix(url);
+      const base_url = `/get-user?token=${token}`
+    
+      const total_url = lat && lon
+        ? `${base_url}&lat=${lat}&lon=${lon}`
+        : `${base_url}`;
+
+        console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error)
+
+        const response = await fetchWithPrefix(total_url);
 
       if (response.nickname !== null) {
         setNickName(response.nickname)
       }
-      //setUserData(response.userChats);
-      if (response.nearbyChats !== null) {
-        setGroupedChats(response.nearbyChats)
+
+      if (response.nearbyChats && Object.keys(response.nearbyChats).length !== 0) {
+        setSelectedFilter("Vicine")
+        setNearbyChats(response.nearbyChats)
+      } else if(response.popularChats && response.popularChats.length > 0) {
+        setSelectedFilter("Popolari")
+        setPopularChats(response.popularChats)
+      }
+
+      setLoading(false);
+
+    } catch (error: any) {
+      setLoading(false);
+      console.error('Errore nella richiesta:', error.response?.data?.message || error.message);
+    }
+  };
+
+
+  const getUserDetailsForFiltering = async () => {
+
+    if (selectedFilter === 'Vicine' && (lat === null && lon === null)){
+      return;
+    }
+
+    setLoading(true);
+    const token = localStorage.getItem('authToken');  // Assicura che token sia una stringa
+
+    try {
+    // Invia la richiesta con o senza latitudine/longitudine
+
+      const base_url = `/get-user?token=${token}&filter=${selectedFilter}`
+    
+      const total_url = lat && lon
+        ? `${base_url}&lat=${lat}&lon=${lon}`
+        : `${base_url}`;
+
+      console.log("sto per fare la richiesta getUserDetailsForFiltering: ", lat, lon, error, selectedFilter)
+
+      const response = await fetchWithPrefix(total_url);
+
+      console.log("recupero...", response)
+
+
+      if (response.nearbyChats && Object.keys(response.nearbyChats).length !== 0) {
+        setNearbyChats(response.nearbyChats)
+        setPopularChats([])
+        setMyChats([])
+      } else if(response.popularChats && response.popularChats.length > 0) {
+        setPopularChats(response.popularChats)
+        setNearbyChats({})
+        setMyChats([])
+      } else if (response.userChats && response.userChats.length > 0) {
+        console.log("sono qui YES...", response.userChats)
+        setMyChats(response.userChats)
+        setNearbyChats({})
+        setPopularChats([])
       }
 
       setLoading(false);
@@ -81,37 +124,73 @@ export default function Home() {
   };
 
   useEffect(() => {
-    getUserDetails();
-  }, []);
+    getUserDetailsInit();
+  }, [lat, lon, error]);
 
-  const CreateChatButton: React.FC = () => {
+  useEffect(() => {
+    if (prevFilter.current === null) {
+      // Se passa da null a stringa, non fare nulla
+      prevFilter.current = selectedFilter;
+      return;
+    }
+
+    console.log("getUserDetailsForFiltering", prevFilter.current, selectedFilter)
+
+    getUserDetailsForFiltering();
+    prevFilter.current = selectedFilter;
+  }, [selectedFilter]);
+
+  const HeaderBrokenChat: React.FC = () => {
     return (
-      <div className="justify-center items-center mb-2">
-        <Link to="/create-chat">
-          <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800">
-            Crea chat
-          </button>
-        </Link>
-      </div>
+      <div className='w-full mb-3'>
+      <div className="flex justify-center items-center mb-2 w-full pl-5 pr-5">
+  {/* Icona Messaggi Privati */}
+  <div className="md:flex flex-1 justify-start">
+    <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
+  </div>
+
+  {/* Bottone Crea Chat */}
+  <div className="flex justify-center md:flex-1">
+    <Link to="/create-chat">
+      <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800">
+        Crea chat
+      </button>
+    </Link>
+  </div>
+
+  {/* Icona Filtro */}
+  <div className="md:flex flex-1 justify-end">
+    <FilterMenu myFilterToShow={nickname != ""} nearFilterToShow={!!lat && !!lon} selectedFilter={selectedFilter} setSelectedFilter={setSelectedFilter} />
+  </div>
+</div>
+<div className="flex justify-center">
+  <LocationRequestButton />
+</div>
+</div>
     );
   };
 
 
   return (
-    <div className="flex flex-col justify-center items-center mt-5">
-      <img src={Logo} />
-      {loading ? ( 
-      // Spinner mentre i dati vengono caricati
-      <div className="flex justify-center items-center mt-5">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-black"></div>
-      </div>
-    ) : (<>
-      {userName ? (
-        <h1 className="text-1xl font-bold my-4 text-gray-500">Hey bentornato, {userName}!</h1>
-      ) : null}
-      <CreateChatButton />
-      <ChatList initialChats={groupedChats} />
-      </>)}
+    <div className="flex flex-col justify-center items-center mt-5 max-w-3xl mx-auto">
+  <img src={Logo} 
+  alt="Logo" 
+  className="w-40 h-32 sm:w-52 sm:h-40 md:w-48 md:h-36 lg:w-56 lg:h-55 xl:w-45 xl:h-55"  />
+  {loading ? ( 
+    // Spinner mentre i dati vengono caricati
+    <div className="flex justify-center items-center mt-5">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-black"></div>
     </div>
+  ) : (
+    <>
+      {nickname ? (
+        <h1 className="text-1xl font-bold my-4 text-gray-500">Hey bentornato, {nickname}!</h1>
+      ) : null}
+      <HeaderBrokenChat />
+      <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} />
+    </>
+  )}
+</div>
+
   );
   }

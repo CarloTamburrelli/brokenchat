@@ -4,6 +4,19 @@ const socketIo = require('socket.io');
 const { Pool } = require('pg'); // per connettersi a PostgreSQL
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const Redis = require('ioredis');
+const redisClient = new Redis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: process.env.REDIS_PORT || 6379
+});
+
+redisClient.flushall((err, res) => {
+  if (err) {
+    console.error('Errore nel resettare Redis:', err);
+  } else {
+    console.log('Redis è stato svuotato con successo!');
+  }
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +39,9 @@ const pool = new Pool({
 // Middleware per il parsing del JSON
 app.use(cors());
 app.use(express.json());
+
+redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
+redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
 
 app.get('/', async (req, res) => {
   res.status(200).json({ message: 'Very nice' });
@@ -126,11 +142,115 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return distance; // Ritorna la distanza
 }
 
+const getMyChats = async (token) => {
+  const userChatsResult = await pool.query(
+    `SELECT c.id, c.name, c.latitude, c.longitude, r.role_type, r.last_access, c.description 
+     FROM chats c
+     JOIN roles r ON c.id = r.chat_id
+     JOIN users u ON u.id = r.user_id
+     WHERE u.token = $1`,
+    [token]  // Token dell'utente
+  );
+
+  const allMyChats = userChatsResult.rows;
+
+  // Crea una pipeline per ottenere il numero di utenti connessi per ogni chat
+  const pipeline = redisClient.pipeline();
+  for (const chat of allMyChats) {
+      pipeline.scard(`online_users:${chat.id}`);
+  }
+
+  // Esegui la pipeline e ottieni i risultati
+  const results = await pipeline.exec();
+
+
+  allMyChats.forEach((chat, index) => {
+      chat.popularity = results[index][1] || 0
+  });
+
+
+  return allMyChats;
+}
+
+const getNearbyChats = async (token, lat, lon) => {
+  try {
+      // Recupera tutte le chat dal database
+      const allChatsResult = await pool.query(
+          `SELECT c.*, r.role_type, r.last_access
+           FROM chats c
+           LEFT JOIN users as u ON u.token = $1
+           LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id`
+      ,[token]);
+      const allChats = allChatsResult.rows;
+
+      // Crea una pipeline per ottenere il numero di utenti connessi per ogni chat
+      const pipeline = redisClient.pipeline();
+      for (const chat of allChats) {
+          pipeline.scard(`online_users:${chat.id}`);
+      }
+
+      // Esegui la pipeline e ottieni i risultati
+      const results = await pipeline.exec();
+
+      // Lista delle chat vicine
+      const nearbyChatsList = {};
+
+      // Loop per calcolare la distanza tra l'utente e ogni chat
+      allChats.forEach((chat, index) => {
+          const distance = calculateDistance(lat, lon, chat.latitude, chat.longitude);
+
+          const chatData = {
+              id: chat.id,
+              name: chat.name,
+              role_type: chat.role_type,
+              last_access: chat.last_access,
+              popularity: results[index][1] || 0, // Numero di utenti connessi
+              description: chat.description
+          };
+
+          if (!nearbyChatsList[distance]) {
+              nearbyChatsList[distance] = [];
+          }
+          nearbyChatsList[distance].push(chatData);
+      });
+
+      // Ordinamento delle chat per popolarità (in ordine decrescente)
+      for (const distance in nearbyChatsList) {
+          nearbyChatsList[distance].sort((a, b) => b.popularity - a.popularity);
+      }
+
+      return nearbyChatsList;  // Restituisci la lista delle chat vicine ordinate
+  } catch (error) {
+      console.error('Errore durante il recupero delle chat vicine:', error);
+      throw error;
+  }
+};
+
+
 
 app.get('/get-user', async (req, res) => {
-  const { token, lat, lon } = req.query;  // Prendi i parametri dalla query
+  const { token, lat, lon, filter } = req.query;  // Prendi i parametri dalla query
+
+  const FILTERS = ["Popolari", "Vicine", "Mie"];
 
   try {
+
+    if (filter && FILTERS.includes(filter)) {
+      let response = {}
+      if (filter == 'Popolari') {
+        response.popularChats = await getPopularChats(token);
+      } else if (filter == 'Vicine' && (lat && lon && lat !== "0" && lon !== "0")) {
+        response.nearbyChats = await getNearbyChats(token, lat, lon);
+      } else { // mie
+        response.userChats = await getMyChats(token);
+      }
+
+      //console.log("sto per restituire...", response)
+
+      return res.status(200).json(response);
+    }
+
+
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
       `SELECT u.nickname 
@@ -139,127 +259,108 @@ app.get('/get-user', async (req, res) => {
       [token]
     );
 
-    let nickname = null; //nome utente se gia' registrato
-    let userChats = null; //stanze dove ha fatto l'accesso
+    let nickname = null; // nome utente se gia' registrato
+    let nearbyChats = {}; // Lista delle chat limitrofe
+    let popularChats = []; // Lista delle chat popolari
 
+    // Se l'utente è registrato
     if (userResult.rows.length !== 0) {
-      // Se l'utente esiste
-      
-      // Prendi nickname e posizione attuale
-      nickname = userResult.rows[0].nickname;
-      
+      nickname = userResult.rows[0].nickname;  // Ottieni il nickname dell'utente
 
-      // Se latitudine e longitudine sono presenti, aggiorna la posizione dell'utente
-      if (lat && lon) {
-        
-        console.log(lat, lon, "yoos");
-
-
+      // Se l'utente fornisce latitudine e longitudine, aggiorna la sua posizione e ottieni le chat vicine
+      if (lat && lon && lat !== "0" && lon !== "0") {
         await pool.query(
           `UPDATE users SET latitude = $1, longitude = $2 WHERE token = $3`,
           [lat, lon, token]
         );
+
+        nearbyChats = await getNearbyChats(token, lat, lon); // Ottieni chat limitrofe
+      } else {
+        // Se non fornisce latitudine e longitudine, recupera solo le chat popolari
+        popularChats = await getPopularChats(token); // Funzione che restituisce chat popolari
       }
 
-      const userChatsResult = await pool.query(
-        `SELECT c.id, c.name, c.latitude, c.longitude
-         FROM chats c
-         JOIN roles r ON c.id = r.chat_id
-         JOIN users u ON u.id = r.user_id
-         WHERE u.token = $1`,
-        [token]  // Token dell'utente
-      );
-
-      userChats = userChatsResult.rows;
+      /*console.log({
+        nickname,
+        userChats,
+        nearbyChats,
+        popularChats
+      })*/
 
 
-      const allChatsResult = await pool.query(
-        `SELECT c.*
-         FROM chats c`
-      );
-  
-      const allChats = allChatsResult.rows;
-  
-      // Liste separate per le chat a cui l'utente ha partecipato e le chat limitrofe
-      const nearbyChatsList = {};
-  
-      // Loop per calcolare la distanza tra l'utente e ogni chat
-      allChats.forEach((chat) => {
-        const distance = calculateDistance(lat, lon, chat.latitude, chat.longitude);
-  
-        const chatData = {
-          id: chat.id,
-          name: chat.name,
-          popularity: 35, 
-          description: chat.description
-        };
-  
-          if (!nearbyChatsList[distance]) {
-            nearbyChatsList[distance] = [];
-          }
-          nearbyChatsList[distance].push(chatData);
-  
+      return res.status(200).json({
+        nickname,
+        nearbyChats,
+        popularChats
       });
 
-      res.status(200).json({
-          nickname,
-          userChats: userChats,  // Chat a cui l'utente partecipa
-          nearbyChats: nearbyChatsList,  // Chat limitrofe
-      });
-  
     } else {
+      // Se l'utente non è registrato
+      if (lat && lon && lat !== "0" && lon !== "0") {
+        // Se l'utente fornisce latitudine e longitudine, restituisci solo le chat limitrofe
+        nearbyChats = await getNearbyChats(token, lat, lon); // Ottieni chat limitrofe
 
-      //se l'utente non esiste
-      if (lat && lon) {
-        const allChatsResult = await pool.query(
-          `SELECT c.*
-           FROM chats c`
-        );
-    
-        const allChats = allChatsResult.rows;
-    
-        // Liste separate per le chat a cui l'utente ha partecipato e le chat limitrofe
-        const nearbyChatsList = {};
-    
-        // Loop per calcolare la distanza tra l'utente e ogni chat
-        allChats.forEach((chat) => {
-          const distance = calculateDistance(lat, lon, chat.latitude, chat.longitude);
-    
-          const chatData = {
-            id: chat.id,
-            name: chat.name,
-            popularity: 35, 
-            description: chat.description
-          };
-    
-            if (!nearbyChatsList[distance]) {
-              nearbyChatsList[distance] = [];
-            }
-            nearbyChatsList[distance].push(chatData);
-    
-        });
-
-        res.status(200).json({
-            nickname: null,
-            nearbyChats: nearbyChatsList,  // Chat limitrofe
+        return res.status(200).json({
+          nickname: null,  // Utente non trovato, quindi nickname è null
+          userChats: [],
+          nearbyChats
         });
 
       } else {
+        // Se non fornisce latitudine e longitudine, restituisci solo le chat popolari
+        popularChats = await getPopularChats(token); // Funzione che restituisce chat popolari
 
-        res.status(200).json({
-          nickname: null,
-          popularChats: [],  // Chat limitrofe
+        return res.status(200).json({
+          nickname: null,  // Utente non trovato, quindi nickname è null
+          userChats: [],
+          popularChats
         });
-
       }
-
     }
-    
+
   } catch (err) {
     console.error('Errore nel recupero dell\'utente:', err);
     res.status(500).json({ message: 'Errore nel recupero dell\'utente' });
   }
 });
+
+// Funzione per ottenere le chat popolari
+const getPopularChats = async (token) => {
+  const allChatsResult = await pool.query(
+    `SELECT c.id, c.name, c.description, r.role_type, r.last_access 
+     FROM chats c
+     LEFT JOIN users as u ON u.token = $1
+     LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
+     `
+  , [token]);
+  const allChats = allChatsResult.rows;
+
+  const pipeline = redisClient.pipeline();
+
+  // Per ogni chat, aggiungi l'operazione per ottenere il numero di utenti connessi
+  for (const chat of allChats) {
+    pipeline.scard(`online_users:${chat.id}`);
+  }
+
+  // Esegui la pipeline
+  const results = await pipeline.exec();
+
+  const popularChats = allChats.map((chat, index) => {
+    return {
+      id: chat.id,
+      name: chat.name,
+      description: chat.description,
+      role_type: chat.role_type,
+      last_access: chat.last_access,
+      popularity: results[index][1] || 0  // Numero di utenti connessi
+    };
+  });
+
+  // Ordina le chat per popolarità (in ordine decrescente)
+  popularChats.sort((a, b) => b.popularity - a.popularity);
+
+  return popularChats;
+};
 
 
 app.get('/chat/:chatId', async (req, res) => {
@@ -306,10 +407,14 @@ app.get('/chat/:chatId', async (req, res) => {
     } else if (chatData.already_in === 0 && chatData.user_id > 0 ) {
       //non e' privata ma e' registrato allora lo inserisco
       await pool.query(
-        'INSERT INTO roles (user_id, role_type, chat_id) VALUES ($1, 3, $2)',
+        'INSERT INTO roles (user_id, role_type, chat_id, last_access) VALUES ($1, 3, $2, NOW())',
         [chatData.user_id, chatId] // role_type = 3 → Utente normale
       );
-
+    } else {
+      await pool.query(
+        `UPDATE roles SET last_access = NOW() WHERE user_id = $1 AND chat_id = $2`,
+        [chatData.user_id, chatId]
+      );
     }
 
     res.status(200).json({
@@ -373,28 +478,34 @@ app.post("/update-nickname", async (req, res) => {
 
 // Gestione della connessione WebSocket
 io.on('connection', (socket) => {
-  console.log('Un utente si è connesso');
+  // console.log('Un utente si è connesso');
 
   // Ascolta per l'evento "join-room" (entrata nella chat)
-  socket.on('join-room', (chatId, nickname) => {
-    if (socket.chatId) {
-      // ⚠️ L'utente sta cambiando chat, quindi esce dalla precedente
-      socket.leave(socket.chatId);
-      io.to(socket.chatId).emit('alert_message', `L'utente ${socket.nickname} si è disconnesso dalla chat!`);
-    }
+  socket.on('join-room', async (chatId, nickname, user_id) => {
 
+    await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
+    socket.userId = user_id;
     socket.chatId = chatId;
     socket.nickname = nickname;
     socket.join(chatId);
-    console.log(`L'utente ${nickname} si e' connesso alla chat ${chatId}!`);
-    io.to(chatId).emit('alert_message', `L'utente ${nickname} si e' connesso alla chat!`);
+  
+    const alertMessage = `${nickname} si è connesso alla chat ${chatId}!`;
+    console.log(alertMessage)
+    const users = await redisClient.smembers(`online_users:${chatId}`);
+    console.log("utenti collegati", users);
+  
+    // Esegui un unico emit
+    io.to(chatId).emit('alert_message', { message: alertMessage, users });
   });
 
-
-  socket.on('leave-room', (chatId, nickname) => {
-    console.log('Un utente si è disconnessos');
+  socket.on('leave-room', async (chatId) => {
+    console.log("Un utente si è disconnessos",chatId, socket.nickname, socket.userId);
     if (socket.chatId && socket.nickname) {
-      io.to(socket.chatId).emit('alert_message', `L'utente ${socket.nickname} si è disconnesso dalla chat!`);
+      console.log("entro...");
+      await redisClient.srem(`online_users:${chatId}`, `${socket.nickname}####${socket.userId}`);
+      const alertMessage = `${socket.nickname} si è disconnesso dalla chatt!`;
+      const users = await redisClient.smembers(`online_users:${chatId}`);
+      io.to(chatId).emit('alert_message', { message: alertMessage, users });
       socket.leave(socket.chatId);
       socket.chatId = null; // Rimuoviamo l'ID della chat attuale
     }
@@ -446,6 +557,30 @@ io.on('connection', (socket) => {
       io.to(socket.chatId).emit("alert_message", `${oldName} ha cambiato nome in ${newName}`);
     }
   });
+
+  socket.on("disconnect", async () => {
+
+    if (!socket.chatId || !socket.nickname || !socket.userId) {
+      console.log("Dati utente mancanti, impossibile rimuovere da Redis.");
+      return;
+    }
+
+    const redisKey = `online_users:${socket.chatId}`;
+    const userString = `${socket.nickname}####${socket.userId}`;
+
+    try {
+        const removed = await redisClient.srem(redisKey, userString);
+        if (removed) {
+            console.log(`Utente ${userString} rimosso da ${redisKey}`);
+        } else {
+            console.log(`Utente ${userString} non trovato in ${redisKey}`);
+        }
+    } catch (err) {
+        console.error(`Errore durante la rimozione da Redis:`, err);
+    }
+
+  })
+
 });
 
 // Avvia il server

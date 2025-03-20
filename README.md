@@ -6,20 +6,13 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 **TODO**
 
-- sistemare homepage:
-  - aggiungi slider per raggio
-  - aggiungi ordinamento per distanza e popolarita'
-  - aggiungi
 - sistema di ban
 - aggiungi lista utenti connessi e offline
 - aggiungi allegati
 
 
 STAVI FINENDO DI SISTEMARE LA HOME:
-- hai fatto query quando sei registrato o meno:
-  (bisognerebbe adesso switchare tra chat mie, chat limitrofe e chat popolari) cietta suggeriva imbuto
-- devi distinguere le mie chat dalle altre
-- aggiungere icona per messaggi privati
+- sistemare la query adesso legge sia le mie chat e sia quelle vicine o popolari (nella query del server) (parlo del metodo principale che elenca tutto), forse bisogna fare un messaggio con "non sei ancora entrato in nessuna chat" quando vai nelle "mie chat"
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 
