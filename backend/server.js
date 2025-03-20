@@ -148,7 +148,8 @@ const getMyChats = async (token) => {
      FROM chats c
      JOIN roles r ON c.id = r.chat_id
      JOIN users u ON u.id = r.user_id
-     WHERE u.token = $1`,
+     WHERE u.token = $1
+     ORDER BY r.last_access DESC;`,
     [token]  // Token dell'utente
   );
 
@@ -362,6 +363,30 @@ const getPopularChats = async (token) => {
   return popularChats;
 };
 
+app.get('/user/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Recupera i dati dell'utente dalla tabella "users"
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+
+    // Rispondi con i dati dell'utente
+    const user = result.rows[0];
+
+    res.status(200).json({
+      user
+    });
+
+  } catch (error) {
+    console.error('Errore nel recupero dei dati dell\'utente', error);
+    res.status(500).json({ message: 'Errore nel recupero dei dati' });
+  }
+});
+
 
 app.get('/chat/:chatId', async (req, res) => {
   const { chatId } = req.params; // Recupera chatId dall'URL
@@ -376,10 +401,17 @@ app.get('/chat/:chatId', async (req, res) => {
          CASE WHEN u.id IS NOT NULL THEN u.id ELSE 0 END as user_id, 
          CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END as already_in,
          u.nickname,
-         u.id as user_id  
+         u.id as user_id,
+         c.description,
+         u_admin.nickname as nickname_admin, 
+         u_admin.id as user_admin_id,
+         u_admin.subscription as user_admin_subscription,
+         c.created_at      
        FROM chats as c
        LEFT JOIN users as u ON u.token = $2 
        LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
+       LEFT JOIN roles as r_admin ON r_admin.role_type = 1 AND r_admin.chat_id = c.id
+       LEFT JOIN users as u_admin ON u_admin.id = r_admin.user_id
        WHERE c.id = $1`,
       [chatId, token]
     );
@@ -393,7 +425,7 @@ app.get('/chat/:chatId', async (req, res) => {
     const chatData = result.rows[0];
 
     const messagesResult = await pool.query(
-      `SELECT m.id, u.nickname, m.message 
+      `SELECT m.id, u.nickname, m.message , m.user_id 
        FROM messages as m
        JOIN users as u ON u.id = m.user_id 
        WHERE m.chat_id = $1  
@@ -554,7 +586,7 @@ io.on('connection', (socket) => {
   socket.on("name_changed", ( oldName, newName ) => {
     if (socket.chatId) {
       socket.nickname = newName;
-      io.to(socket.chatId).emit("alert_message", `${oldName} ha cambiato nome in ${newName}`);
+      io.to(socket.chatId).emit("alert_message", {message : `${oldName} ha cambiato nome in ${newName}` });
     }
   });
 

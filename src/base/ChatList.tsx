@@ -1,12 +1,7 @@
 import React from "react";
 import { Link } from 'react-router-dom';
 import users from '../assets/users.png';
-
-
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("it-IT", { year: "numeric", month: "long", day: "2-digit" });
-};
+import { formatDate } from "../utils/formatDate";
 
 
 interface Chat {
