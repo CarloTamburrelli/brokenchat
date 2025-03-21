@@ -3,6 +3,7 @@ import { Bars3Icon } from '@heroicons/react/24/outline'
 import Logo from '../assets/logo_without_text.png';
 import edit from '../assets/edit.png';
 import exit from '../assets/exit.png';
+import settings from '../assets/settings.png';
 import { Link } from 'react-router-dom';
 import user3 from '../assets/user3.png';
 
@@ -50,9 +51,13 @@ export default function Header({chatName='', usersList=[], onOpenNicknameModal =
           </span>
         </div>)}
         <Menu as="div" className="block relative ml-1 sm:ml-4 text-left">
-          <MenuButton className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden">
-            <Bars3Icon aria-hidden="true" className="block size-6 group-data-open:hidden" />
-          </MenuButton>
+        <MenuButton className="relative flex rounded-full text-sm focus:outline-none">
+  <img
+    src={settings}
+    alt="Settings"
+    className="block w-7 h-7"
+  />
+</MenuButton>
           <MenuItems
             transition
             className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"

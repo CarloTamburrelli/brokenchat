@@ -548,9 +548,11 @@ io.on('connection', (socket) => {
     // Invia il messaggio a tutti gli utenti della stanza
     try {
       // Salva il messaggio nel database
+      const is_a_multimedia_message = newMessage.audio ? true : false;
+
       await pool.query(
         'INSERT INTO messages (chat_id, user_id, message) VALUES ($1, $2, $3)',
-        [chatId, userId, newMessage.text]
+        [chatId, userId, !is_a_multimedia_message ? newMessage.text : '']
       );
       
       // Emetti il messaggio alla chat

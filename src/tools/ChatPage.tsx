@@ -5,18 +5,22 @@ import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from '../utils/formatDate';
 import chat_now from '../assets/chat_now.png';
-
+import send from '../assets/send.png';
 import { socket } from "../utils/socket"; // Importa il socket
 import UserListModal from './UserListModal';
+import AudioRecorderModal from './AudioRecorderModal';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 
-interface MessageData {
-  id: number | string;
+type MessageData = {
+  id:  number | string;
   nickname: string | null;
-  user_id: number | null;
-  message: string;
+  message: string | null;
   alert_message: boolean;
-}
+  user_id: number | null;
+  audio?: string | null;
+};
 
 
 interface ChatData {
@@ -69,6 +73,8 @@ function ChatPage() {
   const [showInfoChatModal, setShowInfoChatModal] = useState(false);
   const [showUserListModal, setShowUserListModal] = useState(false);
   const [usersList, setUsersList] = useState<string[]>([]);
+  const [isLoadingConverting, setIsLoadingConverting] = useState(false);
+  const ffmpeg = new FFmpeg();
   const maxHeight = 150;
 
   const emojis = [
@@ -93,6 +99,7 @@ function ChatPage() {
     const fetchChatData = async (token: string | null) => {
 
       try {
+        console.log("PRIMA......")
         const response_json = await fetchWithPrefix(`/chat/${chatId}?token=${token ? token : ''}`);
         //se passo questo senza errori significa che sono abilitato a visualizzare questa chat
         setChatData({
@@ -138,17 +145,17 @@ function ChatPage() {
 
         socket.on('broadcast_messages', (newMessage) => {
 
-          setMessages(
-            (prevMessages) => [...prevMessages,
-              { 
-                id: newMessage.id,
-                nickname: newMessage.nickname, 
-                message: newMessage.text,
-                alert_message: false,
-                user_id: newMessage.user_id
-              }
-            ]
-          )
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              id: newMessage.id,
+              nickname: newMessage.nickname,
+              message: newMessage.text,
+              alert_message: false,
+              user_id: newMessage.user_id,
+              audio: newMessage.audio || null, // Salviamo l'audio se presente
+            },
+          ]);
         });
 
         socket.off('alert_message');
@@ -167,6 +174,7 @@ function ChatPage() {
                 message: message,
                 alert_message: true,
                 user_id: null,
+                audio: null
               }
             ]
           )
@@ -222,7 +230,7 @@ function ChatPage() {
 
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
 
-      const offset = 80
+      const offset = 120
 
 
       console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
@@ -309,7 +317,7 @@ function ChatPage() {
     // Se è in fondo, nascondiamo il bottone
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
 
-    const offset = 80
+    const offset = 120
 
     //console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
 
@@ -368,6 +376,121 @@ function ChatPage() {
     
   }
 
+  const sendAudioMessage = (base64Audio: string) => {
+    const newMessage = {
+      id: generateUniqueId(),
+      user_id: userId,
+      nickname: nickname,
+      text: '', // Nessun testo perché è un messaggio audio
+      audio: base64Audio, // L'audio codificato in Base64
+      alert_message: false,
+    };
+  
+    socket.emit('message', chatId, newMessage, userId);
+  };
+
+  const handleAudioRecorded = async (audioBlob: Blob) => {
+    try {
+      setIsLoadingConverting(true);
+      await ffmpeg.load();  // Carica FFmpeg
+
+      //const audioFile = new File([audioBlob], 'audio.mp4', { type: 'audio/mp4' });
+      const audioFilePath = '/audio.mp4';
+
+      await ffmpeg.writeFile(audioFilePath, await fetchFile(audioBlob));
+      
+      // Esegui la conversione a MP3
+      await ffmpeg.exec(['-i', audioFilePath, 'output.mp3']);
+
+      const mp3Data = await ffmpeg.readFile('output.mp3')
+
+      // Converti in Base64
+      const mp3Blob = new Blob([mp3Data], { type: 'audio/mp3' });
+      const base64Audio = await blobToBase64(mp3Blob);
+      setIsLoadingConverting(false);  // Rimuovi il loading indicator
+      sendAudioMessage(base64Audio);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 500);
+
+    } catch(error: any) {
+      console.log("errore: ", error);
+    }
+
+
+
+  };
+
+  const blobToBase64 = (blob: Blob) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        resolve(base64.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+
+  const renderMessage = (msg: MessageData) => {
+
+
+    const convertLinksToAnchors = (text: string) => {
+      const urlRegex = /(https?:\/\/[^\s]+)/g; // Regex per trovare i link
+      return text.split(urlRegex).map((part, index) => {
+        if (urlRegex.test(part)) {
+          return (
+            <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+              {part}
+            </a>
+          );
+        }
+        return part; // Restituisce il testo normale
+      });
+    };
+
+
+
+    if (msg.alert_message) {
+      return (
+        <div key={msg.id} className="p-2 font-bold">
+          <span>{msg.message}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div key={msg.id} className="p-2 ">
+          <>
+            <strong 
+              onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null} 
+              className="text-blue-400 cursor-pointer"
+            >
+              {msg.nickname}:
+            </strong>
+  
+            {/* Condizione per verificare se c'è un audio */}
+            {(msg.audio === null || msg.audio === undefined) ? (
+              <span className="p-1">
+                {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
+              </span>
+            ) : (
+              // Se c'è un audio, usa flex per mantenere gli elementi orizzontali>
+              <span className='ml-2'>
+                <audio controls style={{display: 'inline'}}>
+                  <source src={`data:audio/mp3;base64,${msg.audio}`} type="audio/mp3" />
+                  Il tuo browser non supporta l'elemento audio.
+                </audio>
+                </span>
+            )}
+          </>
+        </div>
+      );
+    }
+  };
+  
+  
   return (
     <div className="flex flex-col h-screen w-full">
       {/* Header */}
@@ -449,6 +572,16 @@ function ChatPage() {
         </div>
       </div>
       )}
+
+{isLoadingConverting && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="text-white text-xl font-bold flex items-center space-x-3">
+      <div className="w-8 h-8 border-4 border-t-4 border-white border-solid rounded-full animate-spin"></div>
+      <span>Converting audio...</span>
+    </div>
+  </div>
+)}
+
 
 
 {showNicknameModal && (
@@ -535,16 +668,7 @@ function ChatPage() {
   >
     <div style={{ marginTop: '500px' }}>
       {messages.map((msg) => (
-        <div key={msg.id} className={`p-2 ${msg.alert_message ? "font-bold" : ""}`}>
-          {msg.alert_message ? (
-            <span>{msg.message}</span>
-          ) : (
-            <>
-              <strong onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null} className="text-blue-400 cursor-pointer">{msg.nickname}: </strong>
-              <span className="p-1">{msg.message}</span>
-            </>
-          )}
-        </div>
+        renderMessage(msg)
       ))}
     <div ref={messagesEndRef} className="order-last" />
     </div>
@@ -582,13 +706,13 @@ function ChatPage() {
 
   
       {/* Barra chat input - Sempre fissa in basso */}
-      <div className="sticky bottom-0 bg-gray-800 p-4 z-10">
+      <div className="sticky bottom-0 bg-gray-800 p-2 z-10">
         {/* Input e bottone Invia */}
         <div className="relative flex items-center gap-2 mb-2">
           {/* Modal delle emoticons */}
 
         <button
-              className={`text-white rounded p-2 ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
+              className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
               onClick={() => {
                 inputRef.current?.focus();
                 setShowEmojis(!showEmojis)
@@ -596,6 +720,7 @@ function ChatPage() {
             >
               😊
             </button>
+            <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
             <textarea
           ref={inputRef}
           value={message}
@@ -614,16 +739,10 @@ function ChatPage() {
           rows={1}
           style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
         />
-          {/*<input
-            ref={inputRef}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            type="text"
-            className="flex-1 p-2 bg-gray-700 border rounded text-white"
-            placeholder="Scrivi un messaggio..."
-          />*/}
-          <button onClick={sendMessage} className="bg-blue-500 text-white p-2 rounded">Invia</button>            
+         
+         <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
+            <img src={send} alt="Invia" className="w-6 h-6" />
+          </button>           
         </div>        
       </div>
     </div>
