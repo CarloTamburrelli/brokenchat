@@ -6,8 +6,8 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 **TODO**
 
-- sistema di ban
-- aggiungi allegati
+- sistema di ban e modifica dati room
+- messaggi privati
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 

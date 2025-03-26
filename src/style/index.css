@@ -11,3 +11,7 @@
 body {               
     overscroll-behavior: contain;
 }
+
+.no-select {
+    user-select: none;  /* Impedisce la selezione del testo */
+}

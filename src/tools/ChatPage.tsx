@@ -11,6 +11,7 @@ import UserListModal from './UserListModal';
 import AudioRecorderModal from './AudioRecorderModal';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import useLongPress from './useLongPress';
 
 
 type MessageData = {
@@ -20,6 +21,7 @@ type MessageData = {
   alert_message: boolean;
   user_id: number | null;
   audio?: string | null;
+  quoted_msg: MessageData | null;
 };
 
 
@@ -49,8 +51,10 @@ function BaseWaiting(content: React.ReactNode) {
 
 function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
+  const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
+  const [quotedMessage, setQuotedMessage] = useState<MessageData | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -76,11 +80,36 @@ function ChatPage() {
   const [isLoadingConverting, setIsLoadingConverting] = useState(false);
   const ffmpeg = new FFmpeg();
   const maxHeight = 150;
+  let isScrolling = false;
+
+  const handleTouchMove = () => {
+    isScrolling = true; // Se c'è un movimento, blocca il long press
+  };
 
   const emojis = [
     '🤪', '😠', '🤑', '🤩', '😎', '😆', '🤣', '🤗', '😋', '😝', 
     '😏', '😈', '👻', '💀', '🤯', '🦄', '👽', '💩', '👀', '🍑'
   ];
+
+  const onLongPress = (e: any, msg_id: number | string) => {
+    if (isScrolling) {
+      e.preventDefault(); // Blocca il long press se c'era uno scroll
+      return;
+    }
+
+    setSelectedMessageId(msg_id!)
+    setQuotedMessage(null);
+  };
+
+  const longPressEvent = useLongPress(
+    (event, msgId) => onLongPress(event,msgId!), // Passa msgId
+  )
+
+  // Funzione per deselezionare il messaggio
+  const handleDeselect = () => {
+    setSelectedMessageId(null);
+  };
+
 
   const addEmojiToMessage = (emoji: string, index: number) => {
     inputRef.current?.focus();
@@ -99,7 +128,6 @@ function ChatPage() {
     const fetchChatData = async (token: string | null) => {
 
       try {
-        console.log("PRIMA......")
         const response_json = await fetchWithPrefix(`/chat/${chatId}?token=${token ? token : ''}`);
         //se passo questo senza errori significa che sono abilitato a visualizzare questa chat
         setChatData({
@@ -154,6 +182,7 @@ function ChatPage() {
               alert_message: false,
               user_id: newMessage.user_id,
               audio: newMessage.audio || null, // Salviamo l'audio se presente
+              quoted_msg: newMessage.quoted_msg || null,
             },
           ]);
         });
@@ -166,18 +195,22 @@ function ChatPage() {
           if (users != null) {
             setUsersList(users)
           }
-          setMessages(
-            (prevMessages) => [...prevMessages,
-              { 
-                id: generateUniqueId(),
-                nickname: null, 
-                message: message,
-                alert_message: true,
-                user_id: null,
-                audio: null
-              }
-            ]
-          )
+
+          if (message && message != "") {
+            setMessages(
+              (prevMessages) => [...prevMessages,
+                { 
+                  id: generateUniqueId(),
+                  nickname: null, 
+                  message: message,
+                  alert_message: true,
+                  user_id: null,
+                  audio: null,
+                  quoted_msg: null
+                }
+              ]
+            )
+          }
         });
 
         socket.on("disconnect", (reason) => {
@@ -230,7 +263,7 @@ function ChatPage() {
 
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
 
-      const offset = 120
+      const offset = 150
 
 
       console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
@@ -254,14 +287,28 @@ function ChatPage() {
     if (message.trim()) {
 
       if (!chatContainerRef.current) return; // Verifica se il contenitore del chat esiste prima di controllare le proprie dimensionichatContainerRef.current)
-
-      //const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      //console.log(scrollTop, scrollHeight, clientHeight);
       inputRef.current?.focus();
       inputRef!.current!.style.height = "auto"; // Resetta altezza per calcolare bene
-      const newMessage = { user_id: userId, nickname: nickname, text: message, id: generateUniqueId() }; // Simuliamo il proprio nickname
+      const newMessage: { 
+        user_id: number | null; 
+        nickname: string; 
+        text: string; 
+        id: string; 
+        quoted_msg?: any; // Permette quoted_msg opzionale
+      } = { 
+        user_id: userId, 
+        nickname: nickname, 
+        text: message, 
+        id: generateUniqueId() 
+      };
+
+      if (quotedMessage != null) {
+        newMessage.quoted_msg = quotedMessage;
+      }
+      
       socket.emit('message', chatId, newMessage, userId); // ✅ Invia il messaggio al server
       setMessage(''); // Pulisci l'input
+      setQuotedMessage(null);
       setShowEmojis(false);
       // Mantieni il focus sulla textarea
       setTimeout(() => {
@@ -317,7 +364,7 @@ function ChatPage() {
     // Se è in fondo, nascondiamo il bottone
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
 
-    const offset = 120
+    const offset = 150
 
     //console.log("CALLCOLO", scrollHeight-clientHeight, scrollTop+ offset);
 
@@ -360,6 +407,7 @@ function ChatPage() {
   };
 
   const onUserClicked = async (userId: number) => {
+    console.log("onUserClicked")
     setShowUserListModal(false)
 
     try {
@@ -377,7 +425,16 @@ function ChatPage() {
   }
 
   const sendAudioMessage = (base64Audio: string) => {
-    const newMessage = {
+
+    const newMessage: { 
+      user_id: number | null; 
+      nickname: string; 
+      text: string; 
+      id: string; 
+      audio: string;
+      alert_message: boolean;
+      quoted_msg?: any; // Permette quoted_msg opzionale
+    } = {
       id: generateUniqueId(),
       user_id: userId,
       nickname: nickname,
@@ -385,6 +442,11 @@ function ChatPage() {
       audio: base64Audio, // L'audio codificato in Base64
       alert_message: false,
     };
+
+    if (quotedMessage != null) {
+      newMessage.quoted_msg = quotedMessage;
+      setQuotedMessage(null);
+    }
   
     socket.emit('message', chatId, newMessage, userId);
   };
@@ -433,6 +495,56 @@ function ChatPage() {
     });
   };
 
+  const handleCopy = (text: string) => {
+    handleDeselect()
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setShowToastMessage("Text copied successfully");
+        setTimeout(() => setShowToastMessage(null), 2000);
+      })
+      .catch(err => {
+        console.error("Errore nella copia", err);
+        setShowToastMessage("Error during copy operation!");
+      });
+  };
+
+  const handleReport = async (msg: MessageData) => {
+    if (!window.confirm("Are you sure you want to report this user?")) return;
+
+
+    const token = localStorage.getItem('authToken');
+
+    if (token == null) {
+      return;
+    }
+
+    try {
+        const response_json = await fetchWithPrefix(`/report`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reporter_id: userId,
+              reported_user_id: msg.user_id,
+              chat_id: chatId,
+              message: msg.message, 
+              token,
+            }),
+          }
+        );
+        setShowToastMessage(response_json.message);
+        setTimeout(() => setShowToastMessage(null), 2000);
+
+    } catch (error) {
+        console.error("Error reporting user:", error);
+        setShowToastMessage("An error occurred while reporting the user");
+        setTimeout(() => setShowToastMessage(null), 2000);
+    }
+    handleDeselect()
+  };
+
 
   const renderMessage = (msg: MessageData) => {
 
@@ -442,7 +554,7 @@ function ChatPage() {
       return text.split(urlRegex).map((part, index) => {
         if (urlRegex.test(part)) {
           return (
-            <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+            <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" >
               {part}
             </a>
           );
@@ -455,38 +567,139 @@ function ChatPage() {
 
     if (msg.alert_message) {
       return (
-        <div key={msg.id} className="p-2 font-bold">
+        <div key={msg.id} className="p-2 font-bold no-select">
           <span>{msg.message}</span>
         </div>
       );
     } else {
+
       return (
-        <div key={msg.id} className="p-2 ">
-          <>
-            <strong 
-              onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null} 
-              className="text-blue-400 cursor-pointer"
+        <div key={msg.id} className={`p-2 relative rounded-md ${
+          selectedMessageId === msg.id ? "bg-gray-700 no-select pointer-events-none" : "bg-transparent"
+        }`} {...longPressEvent(msg.id)}>
+      
+          {selectedMessageId === msg.id && (
+            <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-30" style={{ pointerEvents: "auto" }}>
+              <button className="text-sm hover:text-blue-400 px-2"
+               onClick={(e) => {
+                e.stopPropagation();
+                setSelectedMessageId(null); 
+                setQuotedMessage(msg); 
+              
+              }}
+
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }}
+              
+              onTouchEnd={(e) => { 
+                e.stopPropagation(); // Blocca la propagazione del touch
+            
+                setTimeout(() => {
+                  setSelectedMessageId(null); 
+                  setQuotedMessage(msg);
+                  inputRef.current?.focus();
+                }, 100); // Ritardo di 100ms per evitare il click accidentale
+              }}>
+                Rispondi
+              </button>
+
+              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
+      
+              <button className="text-sm text-white px-2" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(msg.message!)
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }
+              }
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                handleCopy(msg.message!)
+              }}
+              
+              >
+                Copia
+              </button>
+      
+              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
+      
+              <button className="text-sm text-red-400 px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReport(msg);
+                }}
+              
+                onTouchStart={(e) => {
+                  e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
+                  handleReport(msg); // Deselect il messaggio
+                }}
+              
+              >
+                Report
+              </button>
+      
+              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
+      
+              <button
+                className="text-sm text-red-500 font-bold hover:text-red-700 px-2"
+                onClick={(e) => {
+                  e.stopPropagation(); // Stoppa la propagazione dell'evento
+                  handleDeselect(); // Deselect il messaggio
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
+                  handleDeselect(); // Deselect il messaggio
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+      
+          <div className="relative">
+
+            
+
+            {/* Aggiungi z-index per sovrascrivere altri elementi */}
+            <strong
+              onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null}
+              onTouchStart={() => msg.user_id ? onUserClicked(msg.user_id): null}
+              className={`cursor-pointer z-10 no-select ${
+    usersList.some(user => user.split("####")[1] === String(msg.user_id)) ? "text-blue-400" : "text-gray-400"
+  }`}  // Aggiungi un z-index alto
+              style={{ pointerEvents: "auto" }} // Garantisce che il nickname sia cliccabile
             >
               {msg.nickname}:
             </strong>
-  
+
+            {msg.quoted_msg && (
+  <div className="mb-2 p-2 rounded-md bg-gray-700 border-l-4 border-blue-400 text-sm text-gray-300 
+                  max-w-full md:max-w-[45%] lg:max-w-[40%]">
+    <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: {msg.quoted_msg.message}
+  </div>
+)}
+      
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
-              <span className="p-1">
+              <span className={`p-1 no-select ${selectedMessageId === msg.id && "text-white"}`}>
                 {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
               </span>
             ) : (
-              // Se c'è un audio, usa flex per mantenere gli elementi orizzontali>
               <span className='ml-2'>
-                <audio controls style={{display: 'inline'}}>
+                <audio controls style={{ display: 'inline' }}>
                   <source src={`data:audio/mp3;base64,${msg.audio}`} type="audio/mp3" />
                   Il tuo browser non supporta l'elemento audio.
                 </audio>
-                </span>
+              </span>
             )}
-          </>
+          </div>
         </div>
       );
+      
+      
     }
   };
   
@@ -494,13 +707,13 @@ function ChatPage() {
   return (
     <div className="flex flex-col h-screen w-full">
       {/* Header */}
-      <div className="sticky top-0 bg-white text-center font-bold z-5">
+      <div className="sticky top-0 text-center font-bold z-50 bg-white">
         <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} chatName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
       </div>
 
       {showInfoChatModal && (
         <div  
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50"
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
         onClick={() => setShowInfoChatModal(false)}
       >
         <div
@@ -539,7 +752,7 @@ function ChatPage() {
 
 {profileToShow && (
         <div
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50"
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
         onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
       >
         <div
@@ -665,6 +878,7 @@ function ChatPage() {
   <div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col"
     ref={chatContainerRef}
     onScroll={chatContainerScrollHandler}
+    onTouchMove={handleTouchMove}
   >
     <div style={{ marginTop: '500px' }}>
       {messages.map((msg) => (
@@ -683,6 +897,12 @@ function ChatPage() {
     )}
   </div>
 
+  {showToastMessage && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
+          {showToastMessage}
+        </div>
+      )}
+
 
       {/* Lista delle emoticons */}
       {showEmojis && (
@@ -690,7 +910,7 @@ function ChatPage() {
           className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-10 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
 
         >
-       <div className="w-full flex flex-wrap md:justify-center items-center">
+       <div className="w-full flex flex-wrap md:justify-center items-center no-select">
           {emojis.map((emoji, index) => (
             <button
               key={index}
@@ -708,42 +928,63 @@ function ChatPage() {
       {/* Barra chat input - Sempre fissa in basso */}
       <div className="sticky bottom-0 bg-gray-800 p-2 z-10">
         {/* Input e bottone Invia */}
-        <div className="relative flex items-center gap-2 mb-2">
-          {/* Modal delle emoticons */}
+        <div className="relative flex flex-col gap-2 mb-2">
+        {/* Mostra il messaggio citato solo se esiste */}
+        {(quotedMessage !== null) && (
+          <div className="p-2 bg-gray-800 text-white rounded-md relative flex flex-col items-start">
+          <span className="text-blue-400 font-bold">{quotedMessage.nickname}:</span>
+          <span className="ml-0 text-left">{quotedMessage.message}</span>
+        
+          {/* Pulsante per rimuovere la citazione */}
+          <button
+            className="absolute top-1 right-2 text-red-400 hover:text-red-600"
+            onClick={() => setQuotedMessage(null)}
+          >
+            ✕
+          </button>
+        </div>
+        )}
 
-        <button
-              className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
-              onClick={() => {
-                inputRef.current?.focus();
-                setShowEmojis(!showEmojis)
-              }}
-            >
-              😊
-            </button>
-            <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
-            <textarea
-          ref={inputRef}
-          value={message}
-          onChange={handleInputChange}
-          onFocus={() => setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          }, 500)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-          className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
-          placeholder="Scrivi un messaggio..."
-          rows={1}
-          style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
-        />
-         
-         <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
-            <img src={send} alt="Invia" className="w-6 h-6" />
-          </button>           
-        </div>        
+  <div className="relative flex items-center gap-2">
+    {/* Modal delle emoticons */}
+    <button
+      className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
+      onClick={() => {
+        inputRef.current?.focus();
+        setShowEmojis(!showEmojis);
+      }}
+    >
+      😊
+    </button>
+
+    <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+
+    <textarea
+      ref={inputRef}
+      value={message}
+      onChange={handleInputChange}
+      onFocus={() => setTimeout(() => {
+        handleDeselect();
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 500)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      }}
+      className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
+      placeholder="Scrivi un messaggio..."
+      rows={1}
+      style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
+    />
+
+    <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
+      <img src={send} alt="Invia" className="w-6 h-6" />
+    </button>
+  </div>
+</div>
+     
       </div>
     </div>
   );

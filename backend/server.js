@@ -228,6 +228,34 @@ const getNearbyChats = async (token, lat, lon) => {
 };
 
 
+app.post("/report", async (req, res) => {
+  try {
+    const { reporter_id, reported_user_id, chat_id, message, token } = req.body;
+
+    if (!reporter_id || !reported_user_id || !chat_id || !message) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const userCheck = await pool.query(
+      "SELECT id FROM users WHERE id = $1 AND token = $2",
+      [reporter_id, token]
+    );
+
+    if (userCheck.rowCount === 0) {
+      return res.status(401).json({ error: "Unauthorized: Invalid user or token" });
+    }
+
+    await pool.query(
+        "INSERT INTO reports (reporter_id, reported_user_id, chat_id, message) VALUES ($1, $2, $3, $4)",
+        [reporter_id, reported_user_id, chat_id, message]
+    );
+    res.json({ message: "Report successfully submitted" });
+  } catch (error) {
+      console.error("Error reporting message:", error);
+      res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 app.get('/get-user', async (req, res) => {
   const { token, lat, lon, filter } = req.query;  // Prendi i parametri dalla query
@@ -515,29 +543,22 @@ io.on('connection', (socket) => {
   // Ascolta per l'evento "join-room" (entrata nella chat)
   socket.on('join-room', async (chatId, nickname, user_id) => {
 
-    await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
     socket.userId = user_id;
     socket.chatId = chatId;
     socket.nickname = nickname;
     socket.join(chatId);
-  
-    const alertMessage = `${nickname} si è connesso alla chat ${chatId}!`;
-    console.log(alertMessage)
+    await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
     const users = await redisClient.smembers(`online_users:${chatId}`);
-    console.log("utenti collegati", users);
-  
-    // Esegui un unico emit
-    io.to(chatId).emit('alert_message', { message: alertMessage, users });
+    io.to(chatId).emit('alert_message', { message: "", users });
+    
   });
 
   socket.on('leave-room', async (chatId) => {
-    console.log("Un utente si è disconnessos",chatId, socket.nickname, socket.userId);
+    console.log("Un utente si è disconnesso",chatId, socket.nickname, socket.userId);
     if (socket.chatId && socket.nickname) {
-      console.log("entro...");
       await redisClient.srem(`online_users:${chatId}`, `${socket.nickname}####${socket.userId}`);
-      const alertMessage = `${socket.nickname} si è disconnesso dalla chatt!`;
       const users = await redisClient.smembers(`online_users:${chatId}`);
-      io.to(chatId).emit('alert_message', { message: alertMessage, users });
+      io.to(chatId).emit('alert_message', { message: "", users });
       socket.leave(socket.chatId);
       socket.chatId = null; // Rimuoviamo l'ID della chat attuale
     }
@@ -585,14 +606,17 @@ io.on('connection', (socket) => {
   });
 
 
-  socket.on("name_changed", ( oldName, newName ) => {
+  socket.on("name_changed", async ( oldName, newName ) => {
     if (socket.chatId) {
+      await redisClient.srem(`online_users:${socket.chatId}`, `${socket.nickname}####${socket.userId}`);
       socket.nickname = newName;
-      io.to(socket.chatId).emit("alert_message", {message : `${oldName} ha cambiato nome in ${newName}` });
+      await redisClient.sadd(`online_users:${socket.chatId}`, `${newName}####${socket.userId}`);
+      const users = await redisClient.smembers(`online_users:${socket.chatId}`);
+      io.to(socket.chatId).emit("alert_message", {message : `${oldName} ha cambiato nome in ${newName}`, users });
     }
   });
 
-  socket.on("disconnect", async () => {
+  socket.on("disconnect", async (reason) => {
 
     if (!socket.chatId || !socket.nickname || !socket.userId) {
       console.log("Dati utente mancanti, impossibile rimuovere da Redis.");
@@ -606,6 +630,8 @@ io.on('connection', (socket) => {
         const removed = await redisClient.srem(redisKey, userString);
         if (removed) {
             console.log(`Utente ${userString} rimosso da ${redisKey}`);
+            const users = await redisClient.smembers(`online_users:${socket.chatId}`);
+            io.to(socket.chatId).emit('alert_message', { message: "", users });
         } else {
             console.log(`Utente ${userString} non trovato in ${redisKey}`);
         }

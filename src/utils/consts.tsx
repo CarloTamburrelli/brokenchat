@@ -1,3 +1,3 @@
-const BROKEN_CHAT_BASE_URL = "https://0ad3-2-37-204-97.ngrok-free.app";
+const BROKEN_CHAT_BASE_URL = "http://192.168.1.171:5002";
 
 export { BROKEN_CHAT_BASE_URL };

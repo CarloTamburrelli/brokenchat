@@ -1,5 +1,5 @@
 import { Disclosure, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { Bars3Icon } from '@heroicons/react/24/outline'
+import { useState } from 'react';
 import Logo from '../assets/logo_without_text.png';
 import edit from '../assets/edit.png';
 import exit from '../assets/exit.png';
@@ -11,6 +11,7 @@ import user3 from '../assets/user3.png';
 
 export default function Header({chatName='', usersList=[], onOpenNicknameModal = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}}: {chatName: string, usersList: string[], onOpenNicknameModal: () => void, onOpenInfo: ()=> void, showUserListModal: () => void}) {
   
+  const [isOpen, setIsOpen] = useState(false);
   const navigation = [
     { name: 'Cambia Nickname', href: '#', current: true, onClick: onOpenNicknameModal, icon: edit },
     { name: 'Ritorna alla Home', href: '#', current: false, onClick: () => window.location.replace("/"), icon: exit },
@@ -25,7 +26,7 @@ export default function Header({chatName='', usersList=[], onOpenNicknameModal =
       <div className="mx-auto max-w-7xl pl-4 pr-4">
       <div className="relative flex h-16 items-center justify-between">
   {/* Contenitore per il logo e il titolo della chat */}
-  <div className="flex items-center">
+  <div className="flex items-center ">
     {/* Logo */}
     <div className="flex items-start">
       <Link to="/" className="pointer-events-auto">
@@ -51,11 +52,13 @@ export default function Header({chatName='', usersList=[], onOpenNicknameModal =
           </span>
         </div>)}
         <Menu as="div" className="block relative ml-1 sm:ml-4 text-left">
-        <MenuButton className="relative flex rounded-full text-sm focus:outline-none">
+        <MenuButton onClick={() => setIsOpen(!isOpen)} className="relative flex rounded-full text-sm focus:outline-none">
   <img
     src={settings}
     alt="Settings"
-    className="block w-7 h-7"
+    className={`block w-7 h-7 transition-transform duration-300 ${
+      isOpen ? "rotate-180" : "rotate-0"
+    }`}
   />
 </MenuButton>
           <MenuItems
