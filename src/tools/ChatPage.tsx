@@ -12,6 +12,7 @@ import AudioRecorderModal from './AudioRecorderModal';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import useLongPress from './useLongPress';
+import {generateUniqueId} from '../utils/generateUniqueId';
 
 
 type MessageData = {
@@ -277,11 +278,6 @@ function ChatPage() {
     }
 
   }, [messages]);
-
-  
-  const generateUniqueId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-  };
 
   const sendMessage = () => {
     if (message.trim()) {
@@ -708,7 +704,7 @@ function ChatPage() {
     <div className="flex flex-col h-screen w-full">
       {/* Header */}
       <div className="sticky top-0 text-center font-bold z-50 bg-white">
-        <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} chatName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
+        <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
       </div>
 
       {showInfoChatModal && (
@@ -875,7 +871,7 @@ function ChatPage() {
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
-  <div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col"
+  <div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col bg-gray-100"
     ref={chatContainerRef}
     onScroll={chatContainerScrollHandler}
     onTouchMove={handleTouchMove}

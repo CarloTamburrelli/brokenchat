@@ -9,7 +9,7 @@ import user3 from '../assets/user3.png';
 
 
 
-export default function Header({chatName='', usersList=[], onOpenNicknameModal = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}}: {chatName: string, usersList: string[], onOpenNicknameModal: () => void, onOpenInfo: ()=> void, showUserListModal: () => void}) {
+export default function Header({headerName='', usersList=[], onOpenNicknameModal = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}}: {headerName: string, usersList?: string[], onOpenNicknameModal: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void}) {
   
   const [isOpen, setIsOpen] = useState(false);
   const navigation = [
@@ -30,15 +30,15 @@ export default function Header({chatName='', usersList=[], onOpenNicknameModal =
     {/* Logo */}
     <div className="flex items-start">
       <Link to="/" className="pointer-events-auto">
-        <img alt="Your Company" src={Logo} className="h-8 block" />
+        <img alt="BrokenChat" src={Logo} className="h-8 block" />
       </Link>
     </div>
     
     {/* Titolo della chat */}
-    {chatName && (
+    {headerName && (
       <h1 className={`font-bold text-red text-center text-lg sm:text-xl flex items-center gap-2 ml-4`}>
         <span onClick={onOpenInfo} className="cursor-pointer pointer-events-auto">
-          {window.innerWidth < 640 ? setTitle(chatName) : chatName}
+          {window.innerWidth < 640 ? setTitle(headerName) : headerName}
         </span>
       </h1>
     )}

@@ -487,6 +487,254 @@ app.get('/chat/:chatId', async (req, res) => {
   }
 });
 
+app.get("/users", async (req, res) => {
+  const { query, token } = req.query;
+
+  try {
+    const userResult = await pool.query(
+      "SELECT id FROM users WHERE token = $1",
+      [token]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    const users = await pool.query(
+      `SELECT 
+        u.id AS user_id, 
+        u.nickname, 
+        pm.id,
+        cm.message AS last_message,
+        cm.created_at AS last_message_time,
+        CASE 
+          WHEN pm.user_id1 = u.id THEN pm.read_1 
+          ELSE pm.read_2 
+        END AS is_read
+      FROM users u
+      LEFT JOIN conversations pm 
+        ON ((pm.user_id1 = u.id AND pm.user_id2 = $1) 
+        OR (pm.user_id2 = u.id AND pm.user_id1 = $1))
+      LEFT JOIN LATERAL (
+        SELECT message, created_at
+        FROM messages
+        WHERE conversation_id = pm.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) cm ON true
+      WHERE u.nickname ILIKE $2 AND u.id <> $1
+      LIMIT 10;`,
+      [userId, `%${query}%`]
+    );
+
+    res.json(users.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error searching users");
+  }
+});
+
+app.get("/conversation/:conversationId", async (req, res) => {
+  const { conversationId } = req.params;
+  const { token } = req.query;
+
+  try {
+      // 1️⃣ Controlliamo se il token corrisponde a un utente della conversazione
+      const conversationQuery = `
+          SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname,
+                 u2.id AS target_user_id, u2.nickname AS target_user_nickname
+          FROM conversations c
+          JOIN users u1 ON u1.token = $1
+          JOIN users u2 ON (c.user_id1 = u1.id AND c.user_id2 = u2.id) OR (c.user_id2 = u1.id AND c.user_id1 = u2.id)
+          WHERE c.id = $2;
+      `;
+
+      const conversationResult = await pool.query(conversationQuery, [token, conversationId]);
+
+      if (conversationResult.rows.length === 0) {
+          return res.status(403).json({ error: "Accesso negato o conversazione non trovata." });
+      }
+
+      const conversation = conversationResult.rows[0];
+
+      // 2️⃣ Recuperiamo i messaggi della conversazione
+      const messagesQuery = `SELECT m.id, u.nickname, m.message , m.user_id 
+       FROM messages as m
+       JOIN users as u ON u.id = m.user_id 
+       WHERE m.conversation_id = $1  
+       ORDER BY m.created_at ASC
+      `;
+
+      const messagesResult = await pool.query(messagesQuery, [conversationId]);
+
+      // 3️⃣ Rispondiamo con i dati
+      return res.json({
+          messages: messagesResult.rows,
+          auth_user: {
+              id: conversation.auth_user_id,
+              nickname: conversation.auth_user_nickname,
+          },
+          target_user: {
+              id: conversation.target_user_id,
+              nickname: conversation.target_user_nickname,
+          }
+      });
+
+  } catch (error) {
+      console.error("Errore nel recupero dei messaggi:", error);
+      res.status(500).json({ error: "Errore interno del server" });
+  }
+});
+
+app.get("/conversations/all", async (req, res) => {
+  const { token } = req.query;
+
+  try {
+    // Trova l'utente con il token
+    const userQuery = 'SELECT * FROM users WHERE token = $1';
+    const userResult = await pool.query(userQuery, [token]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // Recupera tutte le conversazioni dell'utente con solo l'ultimo messaggio
+    const conversationsQuery = `
+      SELECT c.id, 
+             CASE
+                WHEN c.user_id1 = $1 THEN u2.nickname
+                ELSE u1.nickname
+             END AS nickname,
+             cm.message AS last_message,
+             cm.created_at AS last_message_time,
+             CASE
+                WHEN c.user_id1 = $1 THEN c.user_id2
+                ELSE c.user_id1
+             END AS user_id
+      FROM conversations c
+      LEFT JOIN LATERAL (
+        SELECT message, created_at
+        FROM messages
+        WHERE conversation_id = c.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) cm ON true
+      LEFT JOIN users u1 ON c.user_id1 = u1.id
+      LEFT JOIN users u2 ON c.user_id2 = u2.id
+      WHERE c.user_id1 = $1 OR c.user_id2 = $1
+      ORDER BY cm.created_at DESC
+    `;
+    
+    const conversationResult = await pool.query(conversationsQuery, [userId]);
+
+    // Ritorna le conversazioni con l'ultimo messaggio
+    return res.json({
+      conversations: conversationResult.rows
+    });
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.get("/conversations", async (req, res) => {
+  const { token, user_id } = req.query;
+
+  if (!token || !user_id) {
+    return res.status(400).json({ error: "Token e user_id sono obbligatori" });
+  }
+
+  try {
+    // Eseguo una singola query per recuperare sia l'utente autenticato, sia il target, sia la conversazione
+    const result = await pool.query(
+      `WITH auth_user AS (
+          SELECT id, nickname FROM users WHERE token = $1
+        ),
+        target_user AS (
+          SELECT id, nickname FROM users WHERE id = $2
+        )
+      SELECT 
+        au.id AS auth_user_id, au.nickname AS auth_user_nickname,
+        tu.id AS target_user_id, tu.nickname AS target_user_nickname,
+        pm.id AS conversation_id
+      FROM auth_user au
+      CROSS JOIN target_user tu
+      LEFT JOIN conversations pm 
+        ON ((pm.user_id1 = au.id AND pm.user_id2 = tu.id) 
+         OR (pm.user_id1 = tu.id AND pm.user_id2 = au.id))`,
+      [token, user_id]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].auth_user_id) {
+      return res.status(401).json({ error: "Token non valido" });
+    }
+
+    if (!result.rows[0].target_user_id) {
+      return res.status(404).json({ error: "Utente non trovato" });
+    }
+
+    const row = result.rows[0];
+
+    res.json({
+      conversation_id: row.conversation_id || null,
+      auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname },
+      target_user: { id: row.target_user_id, nickname: row.target_user_nickname },
+    });
+  } catch (error) {
+    console.error("Errore nel recupero della conversazione:", error);
+    res.status(500).json({ error: "Errore del server" });
+  }
+});
+
+
+app.post('/create-conversation', async (req, res) => {
+  const { token, user_id } = req.body;
+
+  // Verifica il token dell'utente
+  try {
+    // Recupera l'utente autenticato in base al token
+    const userResult = await pool.query('SELECT id, nickname FROM users WHERE token = $1', [token]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: "Token non valido" });
+    }
+
+    const authUserId = userResult.rows[0].id;
+
+    // Verifica se esiste già una conversazione tra questi due utenti
+    const result = await pool.query(
+      `SELECT id FROM conversations WHERE 
+        (user_id1 = $1 AND user_id2 = $2) OR
+        (user_id1 = $2 AND user_id2 = $1)`,
+      [authUserId, user_id]
+    );
+
+    if (result.rows.length > 0) {
+      // Se la conversazione esiste, restituisci l'ID
+      return res.json({ conversation_id: result.rows[0].id });
+    }
+
+    // Se la conversazione non esiste, creala
+    const insertResult = await pool.query(
+      `INSERT INTO conversations (user_id1, user_id2) 
+      VALUES ($1, $2) RETURNING id`,
+      [authUserId, user_id]
+    );
+
+    // Restituisci l'ID della conversazione appena creata
+    res.json({ conversation_id: insertResult.rows[0].id });
+
+  } catch (err) {
+    console.error("Errore nel creare la conversazione:", err);
+    res.status(500).json({ error: "Errore interno del server" });
+  }
+});
+
+
 app.post("/register-user", async (req, res) => {
   const { nickname } = req.body;
 
@@ -586,7 +834,7 @@ io.on('connection', (socket) => {
       );
       const messageCount = parseInt(result.rows[0].count, 10);
   
-      // Se ci sono più di 100 messaggi, elimina il primo
+      // Se ci sono più di 50 messaggi, elimina il primo
       if (messageCount > 50) {
         await pool.query(`
           DELETE FROM messages
@@ -613,6 +861,81 @@ io.on('connection', (socket) => {
       await redisClient.sadd(`online_users:${socket.chatId}`, `${newName}####${socket.userId}`);
       const users = await redisClient.smembers(`online_users:${socket.chatId}`);
       io.to(socket.chatId).emit("alert_message", {message : `${oldName} ha cambiato nome in ${newName}`, users });
+    }
+  });
+
+  socket.on('join-private-room', async (conversation_id, user, callback) => {
+
+    console.log("sono qui... e faccio accesso alla chat privata", conversation_id, user)
+
+    socket.user_id = user.id;
+    socket.conversation_id = conversation_id;
+    socket.nickname = user.nickname;
+    socket.join(conversation_id);
+
+
+    if (callback) {
+      callback({ success: true, message: 'Room joined successfully' });
+    }
+
+    //await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
+    //const users = await redisClient.smembers(`online_users:${chatId}`);
+  });
+
+  socket.on('leave-private-room', async (conversation_id) => {
+    console.log("Un utente si è disconnesso dalla chat privata",conversation_id, socket.nickname, socket.user_id);
+    if (socket.conversation_id && socket.nickname) {
+      //await redisClient.srem(`online_users:${chatId}`, `${socket.nickname}####${socket.userId}`);
+      //const users = await redisClient.smembers(`online_users:${chatId}`);
+      socket.leave(socket.conversation_id);
+      socket.conversation_id = null; // Rimuoviamo l'ID della chat attuale
+    }
+  });
+
+  socket.on('private-message', async (chatId, newMessage) => {
+
+    console.log("private message! ", socket.conversation_id)
+
+    if (!socket.conversation_id) {
+      return;
+    }
+
+    // Invia il messaggio a tutti gli utenti della stanza
+    try {
+      // Salva il messaggio nel database
+      const is_a_multimedia_message = newMessage.audio ? true : false;
+
+      await pool.query(
+        'INSERT INTO messages (conversation_id, user_id, message) VALUES ($1, $2, $3)',
+        [socket.conversation_id, socket.user_id, !is_a_multimedia_message ? newMessage.text : '']
+      );
+      
+      // Emetti il messaggio alla chat
+      io.to(socket.conversation_id).emit('broadcast_private_messages', newMessage);
+  
+      // Controlla il numero di messaggi nella chat
+      const result = await pool.query(
+        'SELECT COUNT(*) FROM messages WHERE conversation_id = $1',
+        [socket.conversation_id]
+      );
+      const messageCount = parseInt(result.rows[0].count, 10);
+  
+      // Se ci sono più di 50 messaggi, elimina il primo
+      if (messageCount > 50) {
+        await pool.query(`
+          DELETE FROM messages
+          WHERE id = (
+            SELECT id FROM messages
+            WHERE conversation_id = $1
+            ORDER BY id ASC
+            LIMIT 1
+          )`, [socket.conversation_id]);
+        console.log(`Il primo messaggio è stato eliminato dalla conversazione ${socket.conversation_id}`);
+      }
+  
+      console.log(`Messaggio inviato alla conversazione ${socket.conversation_id}: ${newMessage}`);
+    } catch (err) {
+      console.error('Errore nel salvataggio del messaggio:', err);
     }
   });
 

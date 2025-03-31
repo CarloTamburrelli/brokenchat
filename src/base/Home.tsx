@@ -7,6 +7,7 @@ import { useLocation } from "../base/LocationContext"; // Usa il contesto della 
 import my_messages from '../assets/my_messages.png';
 import FilterMenu from '../tools/FilterMenu';
 import LocationRequestButton from "../tools/LocationRequestButton";
+import LoadingSpinner from '../tools/LoadingSpinner';
 
 type Chatroom = {
   id: string;
@@ -146,7 +147,9 @@ export default function Home() {
       <div className="flex justify-center items-center mb-2 w-full pl-5 pr-5">
   {/* Icona Messaggi Privati */}
   <div className="md:flex flex-1 justify-start">
-    <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
+    <Link to="/private-messages">
+      <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
+    </Link>
   </div>
 
   {/* Bottone Crea Chat */}
@@ -178,9 +181,7 @@ export default function Home() {
   className="w-40 h-32 sm:w-52 sm:h-40 md:w-48 md:h-36 lg:w-56 lg:h-55 xl:w-45 xl:h-55"  />
   {loading ? ( 
     // Spinner mentre i dati vengono caricati
-    <div className="flex justify-center items-center mt-5">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-black"></div>
-    </div>
+    <LoadingSpinner />
   ) : (
     <>
       {nickname ? (
