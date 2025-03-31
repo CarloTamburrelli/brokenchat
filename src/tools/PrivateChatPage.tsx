@@ -351,7 +351,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
     }
   };
 
-  const renderMessage = (msg: MessageData) => {
+  const renderMessage = (msg: MessageData, index: number) => {
 
 
     const convertLinksToAnchors = (text: string) => {
@@ -378,10 +378,18 @@ const onLongPress = (e: any, msg_id: number | string) => {
       );
     } else {
 
+      const isSameUserAsPrevious = index > 0 && messages[index - 1].user_id === msg.user_id;
+      const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
+
       return (
-        <div key={msg.id} className={`p-2 relative rounded-md ${
-          selectedMessageId === msg.id ? "bg-gray-700 no-select pointer-events-none" : "bg-transparent"
-        }`} {...longPressEvent(msg.id)}>
+        <div 
+          key={msg.id} 
+          className={`px-2 relative flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
+            ${msg.user_id === authUser!.id ? "ml-auto justify-end" : "mr-auto justify-start"}
+            ${isSameUserAsPrevious ? "pt-1": "pt-3"}
+            ${selectedMessageId === msg.id ? "bg-gray-700 no-select pointer-events-none" : "bg-transparent"}`}
+          {...longPressEvent(msg.id)}
+        >
       
           {selectedMessageId === msg.id && (
             <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-30" style={{ pointerEvents: "auto" }}>
@@ -464,24 +472,25 @@ const onLongPress = (e: any, msg_id: number | string) => {
             </div>
           )}
       
-          <div className="relative">
-
+          <div className={`flex flex-col ${msg.user_id === authUser!.id ? "items-end" : "items-start"}`}>
             
+          {msg.quoted_msg && (
+            <div className={`
+              mb-2 p-2 rounded-md bg-gray-700 border-l-4 border-blue-400 text-sm text-gray-300 
+              max-w-full
+              ${msg.user_id === authUser!.id ? "ml-auto text-right border-r-4 border-l-0" : "mr-auto text-left"}
+            `}>
+              <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: {msg.quoted_msg.message}
+            </div>
+          )}
 
-            {/* Aggiungi z-index per sovrascrivere altri elementi */}
-            <strong
-              className="cursor-pointer z-10 no-select text-blue-400"  // Aggiungi un z-index alto
-              style={{ pointerEvents: "auto" }} // Garantisce che il nickname sia cliccabile
-            >
-              {msg.nickname}:
-            </strong>
-
-            {msg.quoted_msg && (
-  <div className="mb-2 p-2 rounded-md bg-gray-700 border-l-4 border-blue-400 text-sm text-gray-300 
-                  max-w-full md:max-w-[45%] lg:max-w-[40%]">
-    <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: {msg.quoted_msg.message}
-  </div>
-)}
+          <div 
+            className={`p-2 rounded-2xl text-white shadow-md inline-block max-w-full 
+              ${msg.user_id === authUser!.id ? "bg-blue-500 rounded-l-2xl rounded-r-md" : "bg-gray-700 rounded-r-2xl rounded-l-md"}
+              ${isSameUserAsPrevious ? "mt-0" : ""}
+              ${isSameUserAsNext ? "rounded-b-md" : "rounded-b-2xl"}
+            `}
+          >
       
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
@@ -496,6 +505,8 @@ const onLongPress = (e: any, msg_id: number | string) => {
                 </audio>
               </span>
             )}
+
+</div>
           </div>
         </div>
       );
@@ -515,14 +526,14 @@ const onLongPress = (e: any, msg_id: number | string) => {
       </div>
 
       {/* CHAT BODY */}
-      <div className="flex-1 overflow-y-auto text-left pl-2 pr-2 flex flex-col bg-gray-100"
+      <div className="flex-1 overflow-y-auto text-left flex flex-col bg-gray-100"
         ref={chatContainerRef}
         onScroll={chatContainerScrollHandler}
         onTouchMove={handleTouchMove}
     >
-        <div style={{ marginTop: '500px' }}>
-        {messages.map((msg) => (
-            renderMessage(msg)
+        <div style={{ marginTop: '500px',  marginBottom: '4px' }}>
+        {messages.map((msg, index) => (
+            renderMessage(msg, index)
         ))}
         <div ref={messagesEndRef} className="order-last" />
         </div>
