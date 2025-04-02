@@ -10,6 +10,7 @@
 
 body {               
     overscroll-behavior: contain;
+    background-color: #f9f9f9;
 }
 
 .no-select {

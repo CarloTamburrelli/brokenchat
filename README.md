@@ -7,10 +7,13 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 **TODO**
 
 - sistema di ban e modifica dati room
-- messaggi privati
+- messaggi privati:
+  - invio notifiche FCM (dobbiamo avere prima un server?)
+  - mostra messaggio gia' letto o da leggere con numerino e grafica diversa in messaggi privati
+  - mostra online con scritta celeste nel nome o grigio (online su tutta la piattaforma, mi raccomand)
+- sistema header nei messaggi privati (si vede la stessa cosa nelle chat pubbliche)
+- rendi i nickname univoci! :D
 
-
-sistema ricezione dei messaggi privati e forse esteticamente cambia la grafica in maniera che l'utente a cui scrivi abbia scritte a sinistra e tu scritte a destr
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 

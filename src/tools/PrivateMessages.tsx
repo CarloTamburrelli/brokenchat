@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Header from '../base/header';
+import Logo from '../assets/logo_without_text.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from "../utils/formatDate";
 import LoadingSpinner from "./LoadingSpinner";
@@ -71,6 +71,7 @@ const PrivateMessages = () => {
 
   // Effettua il fetch delle conversazioni iniziali quando il componente è montato
   useEffect(() => {
+    window.scrollTo(0, 0);
     //getConversations();
   }, []);
 
@@ -97,14 +98,13 @@ const PrivateMessages = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white">
   {/* Header */}
-  <div className="sticky top-0 text-center font-bold z-50 bg-white">
-    <Header
-      onOpenInfo={() => {}}
-      headerName={"My Messages"}
-      onOpenNicknameModal={openNicknameModal}
-    />
+  <div className="sticky top-0 z-50 bg-white shadow-md flex items-center p-4">
+    <Link to="/" className="pointer-events-auto mr-4 text-2xl">
+      <img alt="BrokenChat" src={Logo} className="h-8 block" />
+    </Link>
+    <h2 className="text-lg font-semibold">My Messages</h2>
   </div>
 
   {showNicknameModal && (
@@ -154,23 +154,23 @@ const PrivateMessages = () => {
 )}
 
   {/* Barra di ricerca */}
-  <div className="mb-4 mt-1 mx-5 flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
-  <input
-    type="text"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    placeholder="Cerca utente..."
-    className="w-full p-3 focus:outline-none rounded-lg"
-  />
-  {searchQuery && (
-    <button
-      onClick={() => setSearchQuery("")}
-      className="p-2 text-gray-500 hover:text-gray-700"
-    >
-      ✖
-    </button>
-  )}
-</div>
+  <div className="mb-4 mt-4 mx-5 flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+    <input
+      type="text"
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      placeholder="Cerca utente..."
+      className="w-full p-3 focus:outline-none rounded-lg"
+    />
+    {searchQuery && (
+      <button
+        onClick={() => setSearchQuery("")}
+        className="p-2 text-gray-500 hover:text-gray-700"
+      >
+        ✖
+      </button>
+    )}
+  </div>
 
 
   {/* Lista delle conversazioni o degli utenti */}
@@ -182,7 +182,7 @@ const PrivateMessages = () => {
   ) : (
     conversations.length > 0 ? (
     conversations.map((conversation) => (
-      <div className="bg-white shadow-lg rounded-lg p-4" key={conversation.id}>
+      <div className="shadow-lg rounded-lg p-4" key={conversation.id}>
         <Link to={`/private-messages/${conversation.last_message ? conversation.id : `new/${conversation.user_id}`}`}>
           <div className="text-left">
             <strong className="text-lg">{conversation.nickname}</strong>

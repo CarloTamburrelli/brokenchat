@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation} from "react-router-dom";
 import AudioRecorderModal from './AudioRecorderModal';
 import send from '../assets/send.png';
 import { fetchWithPrefix } from '../utils/api';
@@ -26,6 +26,9 @@ type MessageData = {
 
 const PrivateChatPage = () => {
   const { privateMessageId, userId } = useParams(); // chatId per conversazioni esistenti, userId per nuove
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const goback = queryParams.get('goback'); // Ottieni il parametro 'goback'
   const navigate = useNavigate();
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -164,7 +167,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
         const response_json = await fetchWithPrefix(`/conversations/?token=${token}&user_id=${userId}`);
         console.log("dopo...", response_json);
         if (response_json.conversation_id) {
-            navigate(`/private-messages/${response_json.conversation_id}`);
+          const url = goback 
+          ? `/private-messages/${response_json.conversation_id}?goback=${goback}` 
+          : `/private-messages/${response_json.conversation_id}`;
+            navigate(url);
         } else {
             setAuthUser(response_json.auth_user)
             setTargetUser(response_json.target_user)
@@ -494,7 +500,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
       
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
-              <span className={`p-1 no-select ${selectedMessageId === msg.id && "text-white"}`}>
+              <span className={`no-select ${selectedMessageId === msg.id && "text-white"}`}>
                 {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
               </span>
             ) : (
@@ -515,18 +521,20 @@ const onLongPress = (e: any, msg_id: number | string) => {
     }
   };
 
+  const goBackLink = goback ? `/chat/${goback}` : '/private-messages';
+
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* HEADER */}
       <div className="sticky top-0 z-50 bg-white shadow-md flex items-center p-4">
-        <Link to="/private-messages" className="mr-4 text-2xl">
+        <Link to={goBackLink} className="mr-4 text-2xl">
           ←
         </Link>
         <h2 className="text-lg font-semibold">{targetUser?.nickname || "Chat"}</h2>
       </div>
 
       {/* CHAT BODY */}
-      <div className="flex-1 overflow-y-auto text-left flex flex-col bg-gray-100"
+      <div className="flex-1 overflow-y-auto text-left flex flex-col bg-white"
         ref={chatContainerRef}
         onScroll={chatContainerScrollHandler}
         onTouchMove={handleTouchMove}

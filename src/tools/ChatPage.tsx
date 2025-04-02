@@ -66,14 +66,12 @@ function ChatPage() {
   const [userId, setUserId] = useState<number | null>(null);
   const [admin, setAdmin] = useState<ProfileUser | null>(null);
   const [profileToShow, setProfileToShow] = useState<ProfileUser | null>(null);
-  const [nicknameTmp, setTmpNickname] = useState<string>('');
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEmojis, setShowEmojis] = useState(false);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
-  const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true);
   const [showInfoChatModal, setShowInfoChatModal] = useState(false);
   const [showUserListModal, setShowUserListModal] = useState(false);
@@ -349,7 +347,7 @@ function ChatPage() {
   }
 
   // Se c'è un errore nel recupero dei dati
-  if (error && !showModal && !showNicknameModal) {
+  if (error && !showModal) {
     return BaseWaiting(<div className='text-red-600 font-bold text-xl'>{error}</div>);
   }
 
@@ -370,31 +368,6 @@ function ChatPage() {
 
   }
 
-
-  const handleChangeNickname = async () => {
-    try {
-        const token = localStorage.getItem('authToken');
-
-        await fetchWithPrefix(`/update-nickname`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, nickname: nicknameTmp }),
-        });
-
-        socket.emit('name_changed', nickname, nicknameTmp);
-        setNickname(nicknameTmp);
-        setShowNicknameModal(false);
-
-    } catch (error) {
-      console.log(error);
-      setError("Impossibile cambiare nickname");
-    }
-  };
-
-  const openNicknameModal = () => {
-    setTmpNickname(nickname);
-    setShowNicknameModal(true);
-  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -699,7 +672,7 @@ function ChatPage() {
       
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
-              <span className={`p-1 no-select ${selectedMessageId === msg.id && "text-white"}`}>
+              <span className={`no-select ${selectedMessageId === msg.id && "text-white"}`}>
                 {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
               </span>
             ) : (
@@ -722,10 +695,10 @@ function ChatPage() {
   
   
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
-      <div className="sticky top-0 text-center font-bold z-50 bg-white">
-        <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} onOpenNicknameModal={openNicknameModal} />
+      <div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
+        <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} onOpenNicknameModal={() => {}} />
       </div>
 
       {showInfoChatModal && (
@@ -795,8 +768,10 @@ function ChatPage() {
           {/* Bottone per scrivere in privato */}
           <div className="mt-4 flex items-center justify-center">
             <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
-              <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
-              <span>Scrivi in privato</span>
+              <Link to={`/private-messages/new/${profileToShow?.id}?goback=${chatId}`} className="flex items-center space-x-2">
+                <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
+                <span>Scrivi in privato</span>
+              </Link>
             </button>
           </div>
         </div>
@@ -812,53 +787,6 @@ function ChatPage() {
   </div>
 )}
 
-
-
-{showNicknameModal && (
-  <div
-    className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20"
-    onClick={() => setShowNicknameModal(false)} // Chiude la modal cliccando fuori
-  >
-    <div
-      className="bg-white p-6 rounded-lg shadow-lg relative w-96"
-      onClick={(e) => e.stopPropagation()} // Impedisce la chiusura cliccando dentro la modal
-    >
-      {/* Header con titolo e pulsante di chiusura */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-gray-800">Cambia il tuo nickname</h2>
-        <button
-          className="text-gray-500 hover:text-black text-2xl font-semibold"
-          onClick={() => setShowNicknameModal(false)}
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Input del nickname */}
-      <input
-        maxLength={17}
-        type="text"
-        placeholder="Nuovo nickname"
-        value={nicknameTmp}
-        onChange={(e) => setTmpNickname(e.target.value)}
-        className="border p-2 mt-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-
-      {/* Errore se presente */}
-      {error && <div className="text-red-600 font-bold mt-2">{error}</div>}
-
-      {/* Bottone di conferma */}
-      <div className="flex mt-4 justify-center">
-        <button
-          onClick={handleChangeNickname}
-          className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
-        >
-          Conferma
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
 <UserListModal
     onUserClicked={onUserClicked}
@@ -892,12 +820,12 @@ function ChatPage() {
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
-  <div className="flex-1 overflow-y-auto text-left flex flex-col"
+  <div className="flex-1 overflow-y-auto text-left flex flex-col bg-white"
     ref={chatContainerRef}
     onScroll={chatContainerScrollHandler}
     onTouchMove={handleTouchMove}
   >
-    <div style={{ marginTop: '500px', marginBottom: '4px' }}>
+    <div style={{ marginTop: '500px', marginBottom: '4px'}}>
       {messages.map((msg, index) => (
         renderMessage(msg, index)
       ))}
@@ -915,7 +843,7 @@ function ChatPage() {
   </div>
 
   {showToastMessage && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
           {showToastMessage}
         </div>
       )}
