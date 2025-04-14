@@ -2,21 +2,32 @@ import { Disclosure, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/r
 import { useState } from 'react';
 import Logo from '../assets/logo_without_text.png';
 import edit from '../assets/edit.png';
-import exit from '../assets/exit.png';
+import ban_user from '../assets/ban_user.png';
 import dots from '../assets/dots.png';
 import my_messages from '../assets/my_messages.png';
 import { Link } from 'react-router-dom';
 import user3 from '../assets/user3.png';
 
+type NavItem = {
+  name: string;
+  href: string;
+  current: boolean;
+  onClick?: () => void;
+  icon?: string;
+};
 
 
-export default function Header({headerName='', usersList=[], onOpenNicknameModal = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}}: {headerName: string, usersList?: string[], onOpenNicknameModal: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void}) {
-  
-  const [isOpen, setIsOpen] = useState(false);
-  const navigation = [
-    { name: 'Cambia Nickname', href: '#', current: true, onClick: onOpenNicknameModal, icon: edit },
-    { name: 'Ritorna alla Home', href: '#', current: false, onClick: () => window.location.replace("/"), icon: exit },
-  ]
+
+export default function Header({headerName='', usersList=[], editChat = () => {}, banUser = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}, AmIAdmin=0}: {headerName: string, usersList?: string[], editChat: () => void, banUser: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void, AmIAdmin: number}) {
+
+  let adminNavigation: NavItem[] = [];
+
+  if (AmIAdmin == 1) {
+    adminNavigation = [
+      { name: 'Edit Chat', href: '#', current: true, onClick: editChat, icon: edit },
+      { name: 'Ban User', href: '#', current: true, onClick: banUser, icon: ban_user },
+    ]
+  }
 
   const setTitle = (text: string, maxLength = 15) => {
     return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
@@ -63,9 +74,11 @@ export default function Header({headerName='', usersList=[], onOpenNicknameModal
             </span>
           </div>
         </Link>
+
+        {adminNavigation.length > 0 && (
         
         <Menu as="div" className="block relative text-left">
-        <MenuButton onClick={() => setIsOpen(!isOpen)} className="relative flex rounded-full text-sm focus:outline-none">
+        <MenuButton className="relative flex rounded-full text-sm focus:outline-none">
           <img
             src={dots}
             alt="Settings"
@@ -74,9 +87,9 @@ export default function Header({headerName='', usersList=[], onOpenNicknameModal
         </MenuButton>
           <MenuItems
             transition
-            className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+            className="absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
           >
-            {navigation.map((item) => (
+            {adminNavigation.map((item) => (
               <MenuItem key={item.name}>
                 <a
                   href={"#"}
@@ -99,7 +112,8 @@ export default function Header({headerName='', usersList=[], onOpenNicknameModal
               </MenuItem>
             ))}
           </MenuItems>
-        </Menu>
+        </Menu>)
+        }
       </div>
     </div>
   </div>

@@ -13,6 +13,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import useLongPress from './useLongPress';
 import {generateUniqueId} from '../utils/generateUniqueId';
+import ChatSettingsModal from './ChatSettingsModal';
 
 
 type MessageData = {
@@ -23,6 +24,7 @@ type MessageData = {
   user_id: number | null;
   audio?: string | null;
   quoted_msg: MessageData | null;
+  delete_chat: boolean | null;
 };
 
 
@@ -31,6 +33,7 @@ interface ChatData {
   isPrivate: boolean;
   description: string;
   created_at: string;
+  am_i_admin: number;
 }
 
 interface ProfileUser { 
@@ -77,6 +80,8 @@ function ChatPage() {
   const [showUserListModal, setShowUserListModal] = useState(false);
   const [usersList, setUsersList] = useState<string[]>([]);
   const [isLoadingConverting, setIsLoadingConverting] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChatLocked, setIsChatLocked] = useState(false);
   const ffmpeg = new FFmpeg();
   const maxHeight = 150;
   let isScrolling = false;
@@ -133,6 +138,7 @@ function ChatPage() {
           name: response_json.chat.name,
           isPrivate: response_json.chat.is_private,
           description: response_json.chat.description,
+          am_i_admin: response_json.chat.am_i_admin,
           created_at: formatDate(response_json.chat.created_at)
         });
 
@@ -182,6 +188,7 @@ function ChatPage() {
               user_id: newMessage.user_id,
               audio: newMessage.audio || null, // Salviamo l'audio se presente
               quoted_msg: newMessage.quoted_msg || null,
+              delete_chat: false,
             },
           ]);
         });
@@ -189,8 +196,8 @@ function ChatPage() {
         socket.off('alert_message');
 
         socket.on('alert_message', (data: any) => {
-          const { message, users } = data;
-          console.log("utenti collegat", users)
+
+          const { message, users, deleteChat, editChat} = data;
           if (users != null) {
             setUsersList(users)
           }
@@ -205,10 +212,23 @@ function ChatPage() {
                   alert_message: true,
                   user_id: null,
                   audio: null,
-                  quoted_msg: null
+                  quoted_msg: null,
+                  delete_chat: deleteChat
                 }
               ]
             )
+
+            if (deleteChat && deleteChat == true) {
+              setIsChatLocked(true)
+            } else if (editChat && Object.keys(editChat).length > 0) {
+
+              setChatData((prev: any) => ({
+                ...prev,
+                ...editChat,
+              }));
+
+            }
+
           }
         });
 
@@ -264,8 +284,7 @@ function ChatPage() {
 
       const offset = 150
 
-
-      console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
+      //console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
 
 
       if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
@@ -375,15 +394,18 @@ function ChatPage() {
     setShowNewMessageBtn(false);
   };
 
-  const onUserClicked = async (userId: number) => {
-    console.log("onUserClicked")
+  const onUserClicked = async (userIdToShow: number) => {
     setShowUserListModal(false)
 
+    if (userIdToShow == userId) {
+      return;
+    }
+
     try {
-      const response_json = await fetchWithPrefix(`/user/${userId}`);
-      console.log("UTENTE RECUPERATO", response_json); // Qui trovi i dati dell'utente
+      const response_json = await fetchWithPrefix(`/user/${userIdToShow}`);
+      //console.log("UTENTE RECUPERATO", response_json); // Qui trovi i dati dell'utente
       setProfileToShow({
-        id: userId,
+        id: userIdToShow,
         nickname: response_json.user.nickname,
         subscription: formatDate(response_json.user.subscription),
       })
@@ -469,13 +491,62 @@ function ChatPage() {
     navigator.clipboard.writeText(text)
       .then(() => {
         setShowToastMessage("Text copied successfully");
-        setTimeout(() => setShowToastMessage(null), 2000);
+        setTimeout(() => setShowToastMessage(null), 3000);
       })
       .catch(err => {
         console.error("Errore nella copia", err);
         setShowToastMessage("Error during copy operation!");
       });
   };
+
+  const handleSaveSettings = async (newTitle: string, newDescription: string) => {
+    try {
+
+      const token = localStorage.getItem('authToken');
+
+      if (token == null) {
+        return;
+      }
+
+      await fetchWithPrefix(`/chat/${chatId}?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle, description: newDescription }),
+      });
+
+      socket.emit('update_chat_data', newTitle, newDescription);
+
+      setShowToastMessage("Chat data changed successfully!");
+      setTimeout(() => setShowToastMessage(null), 3000);
+
+
+    } catch (error) {
+      console.error("Errore nel salvataggio", error);
+      alert("Errore nel salvataggio della chat.");
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    const confirm = window.confirm("Are you sure you want to delete this chat? It won't be possible to recover it");
+    if (!confirm) return;
+
+    const token = localStorage.getItem('authToken');
+
+    if (token == null) {
+      return;
+    }
+
+    try {
+      socket.emit('delete_chat_process', chatId, token);
+      setIsSettingsOpen(false)
+
+      setChatData({...chatData!, am_i_admin: 0})
+    } catch (error) {
+      console.error("Errore nella cancellazione", error);
+      alert("Errore nella cancellazione della chat.");
+    }
+  };
+
 
   const handleReport = async (msg: MessageData) => {
     if (!window.confirm("Are you sure you want to report this user?")) return;
@@ -504,12 +575,12 @@ function ChatPage() {
           }
         );
         setShowToastMessage(response_json.message);
-        setTimeout(() => setShowToastMessage(null), 2000);
+        setTimeout(() => setShowToastMessage(null), 3000);
 
     } catch (error) {
         console.error("Error reporting user:", error);
         setShowToastMessage("An error occurred while reporting the user");
-        setTimeout(() => setShowToastMessage(null), 2000);
+        setTimeout(() => setShowToastMessage(null), 3000);
     }
     handleDeselect()
   };
@@ -536,7 +607,10 @@ function ChatPage() {
 
     if (msg.alert_message) {
       return (
-        <div key={msg.id} className="p-2 font-bold no-select">
+        <div
+          key={msg.id}
+          className={`p-2 font-bold no-select ${msg.delete_chat ? 'text-red-600' : ''}`}
+        >
           <span>{msg.message}</span>
         </div>
       );
@@ -648,7 +722,7 @@ function ChatPage() {
                 ${usersList.some(user => user.split("####")[1] === String(msg.user_id)) ? "text-blue-400" : "text-gray-400"}`}
               style={{ pointerEvents: "auto" }}
             >
-              {msg.user_id === userId ? "Tu" : msg.nickname}
+              {msg.user_id === userId ? "You" : msg.nickname} {(msg.user_id == admin!.id) && "👑"}
             </strong>
           </div>)}
             
@@ -698,7 +772,7 @@ function ChatPage() {
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
       <div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
-        <Header usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} onOpenNicknameModal={() => {}} />
+        <Header AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => {}} />
       </div>
 
       {showInfoChatModal && (
@@ -793,7 +867,18 @@ function ChatPage() {
         isOpen={showUserListModal}
         setIsOpen={setShowUserListModal}
         users={usersList}
+        myId={userId!}
+        adminProfile={admin!}
       />
+
+<ChatSettingsModal
+    isOpen={isSettingsOpen}
+    setIsOpen={setIsSettingsOpen}
+    initialTitle={chatData!.name}
+    initialDescription={chatData!.description}
+    onSave={handleSaveSettings}
+    onDeleteChat={handleDeleteChat}
+  />
 
 
 {showModal && (
@@ -871,66 +956,66 @@ function ChatPage() {
 
   
       {/* Barra chat input - Sempre fissa in basso */}
-      <div className="sticky bottom-0 bg-gray-800 p-2 z-10">
+      {(isChatLocked == false) && (<div className="sticky bottom-0 bg-gray-800 p-2 z-10">
         {/* Input e bottone Invia */}
         <div className="relative flex flex-col gap-2 mb-2">
-        {/* Mostra il messaggio citato solo se esiste */}
-        {(quotedMessage !== null) && (
-          <div className="p-2 bg-gray-800 text-white rounded-md relative flex flex-col items-start">
-          <span className="text-blue-400 font-bold">{quotedMessage.nickname}:</span>
-          <span className="ml-0 text-left">{quotedMessage.message}</span>
-        
-          {/* Pulsante per rimuovere la citazione */}
-          <button
-            className="absolute top-1 right-2 text-red-400 hover:text-red-600"
-            onClick={() => setQuotedMessage(null)}
-          >
-            ✕
-          </button>
-        </div>
-        )}
+            {/* Mostra il messaggio citato solo se esiste */}
+            {(quotedMessage !== null) && (
+              <div className="p-2 bg-gray-800 text-white rounded-md relative flex flex-col items-start">
+              <span className="text-blue-400 font-bold">{quotedMessage.nickname}:</span>
+              <span className="ml-0 text-left">{quotedMessage.message}</span>
+            
+              {/* Pulsante per rimuovere la citazione */}
+              <button
+                className="absolute top-1 right-2 text-red-400 hover:text-red-600"
+                onClick={() => setQuotedMessage(null)}
+              >
+                ✕
+              </button>
+            </div>
+            )}
 
-  <div className="relative flex items-center gap-2">
-    {/* Modal delle emoticons */}
-    <button
-      className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
-      onClick={() => {
-        inputRef.current?.focus();
-        setShowEmojis(!showEmojis);
-      }}
-    >
-      😊
-    </button>
+      <div className="relative flex items-center gap-2">
+        {/* Modal delle emoticons */}
+        <button
+          className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
+          onClick={() => {
+            inputRef.current?.focus();
+            setShowEmojis(!showEmojis);
+          }}
+        >
+          😊
+        </button>
 
-    <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+        <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
 
-    <textarea
-      ref={inputRef}
-      value={message}
-      onChange={handleInputChange}
-      onFocus={() => setTimeout(() => {
-        handleDeselect();
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 500)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      }}
-      className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
-      placeholder="Scrivi un messaggio..."
-      rows={1}
-      style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
-    />
+        <textarea
+          ref={inputRef}
+          value={message}
+          onChange={handleInputChange}
+          onFocus={() => setTimeout(() => {
+            handleDeselect();
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 500)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
+          placeholder="Scrivi un messaggio..."
+          rows={1}
+          style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
+        />
 
-    <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
-      <img src={send} alt="Invia" className="w-6 h-6" />
-    </button>
-  </div>
-</div>
-     
+        <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
+          <img src={send} alt="Invia" className="w-6 h-6" />
+        </button>
       </div>
+    </div>
+     
+      </div>)}
     </div>
   );
   

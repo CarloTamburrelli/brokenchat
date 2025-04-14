@@ -110,8 +110,8 @@ function CreateChatForm() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center mt-5 ">
-      <Link to="/">
+    <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white">
+      <Link to="/" className="flex justify-center items-center">
         <img src={Logo} />
       </Link>
       <form onSubmit={handleSubmit} className="mt-5 w-full p-2">

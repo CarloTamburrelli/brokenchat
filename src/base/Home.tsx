@@ -48,8 +48,8 @@ export default function Home() {
 
         setNickName(nicknameTmp);
         setShowNicknameModal(false);
-        setShowToastMessage("Nome cambiato!");
-        setTimeout(() => setShowToastMessage(null), 2000);
+        setShowToastMessage("Name changed!");
+        setTimeout(() => setShowToastMessage(null), 3000);
 
     } catch (error) {
       console.log(error);
@@ -80,9 +80,11 @@ export default function Home() {
         ? `${base_url}&lat=${lat}&lon=${lon}`
         : `${base_url}`;
 
-        console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error)
+        console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error, total_url)
 
         const response = await fetchWithPrefix(total_url);
+
+        console.log("risultato", response)
 
       if (response.nickname !== null) {
         setNickName(response.nickname)

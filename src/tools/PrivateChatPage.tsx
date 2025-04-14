@@ -224,7 +224,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
         setShowToastMessage("Text copied successfully");
-        setTimeout(() => setShowToastMessage(null), 2000);
+        setTimeout(() => setShowToastMessage(null), 3000);
       })
       .catch(err => {
         console.error("Errore nella copia", err);
@@ -259,12 +259,12 @@ const onLongPress = (e: any, msg_id: number | string) => {
             }
           );
           setShowToastMessage(response_json.message);
-          setTimeout(() => setShowToastMessage(null), 2000);
+          setTimeout(() => setShowToastMessage(null), 3000);
   
       } catch (error) {
           console.error("Error reporting user:", error);
           setShowToastMessage("An error occurred while reporting the user");
-          setTimeout(() => setShowToastMessage(null), 2000);
+          setTimeout(() => setShowToastMessage(null), 3000);
       }
       handleDeselect()
     };

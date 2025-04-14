@@ -360,6 +360,7 @@ const getPopularChats = async (token) => {
      FROM chats c
      LEFT JOIN users as u ON u.token = $1
      LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
+     WHERE c.is_private = false
      `
   , [token]);
   const allChats = allChatsResult.rows;
@@ -416,6 +417,82 @@ app.get('/user/:userId', async (req, res) => {
 });
 
 
+async function deleteRoom(chatId, token) {
+  
+  try {
+    // Verifica se il token è valido per l'amministratore
+    const result = await pool.query('SELECT * FROM users WHERE token = $1', [token]);
+
+    if (result.rows.length === 0) {
+      // Se il token non è valido, restituisci un errore
+      console.log(chatId, "Token non valido o amministratore non autorizzato a rimuovere la chat")
+      return false;
+    }
+
+    // Inizia la transazione
+    await pool.query('BEGIN');
+
+    // Elimina i messaggi associati alla chat
+    await pool.query('DELETE FROM messages WHERE chat_id = $1', [chatId]);
+
+    // Elimina i ruoli associati alla chat
+    await pool.query('DELETE FROM roles WHERE chat_id = $1', [chatId]);
+
+    // Elimina i reports associati alla chat
+    await pool.query('DELETE FROM reports WHERE chat_id = $1', [chatId]);
+
+    // Elimina la chat
+    await pool.query('DELETE FROM chats WHERE id = $1', [chatId]);
+
+    // Commit della transazione se tutte le query vanno a buon fine
+    await pool.query('COMMIT');
+
+    await redisClient.del(`online_users:${chatId}`); 
+
+    return true;
+
+  } catch (err) {
+    await pool.query('ROLLBACK');  // Se c'è un errore, annulla tutte le operazioni
+    console.error("Errore cancellazione chat:", err);
+    return false;
+  }
+};
+
+app.post('/chat/:chatId', async (req, res) => {
+  const { chatId } = req.params;
+  const { title, description } = req.body;
+  const token = req.query.token;
+
+  if (!token || !title || !description) {
+    return res.status(400).json({ error: 'Missing token or required data.' });
+  }
+
+  try {
+    // Verifica che il token corrisponda a un utente che ha ruolo admin (role_type = 1) in questa chat
+    const result = await pool.query(`
+      SELECT users.id FROM users
+      INNER JOIN roles ON roles.user_id = users.id
+      WHERE users.token = $1 AND roles.chat_id = $2 AND roles.role_type = 1
+    `, [token, chatId]);
+
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Unauthorized: not admin of this chat.' });
+    }
+
+    // Aggiorna la chat se il token è valido e l’utente è admin
+    await pool.query(
+      'UPDATE chats SET name = $1, description = $2 WHERE id = $3',
+      [title, description, chatId]
+    );
+
+    res.status(200).json({});
+  } catch (err) {
+    console.error("Errore aggiornamento chat:", err);
+    res.sendStatus(500);
+  }
+});
+
+
 app.get('/chat/:chatId', async (req, res) => {
   const { chatId } = req.params; // Recupera chatId dall'URL
   const token = req.query.token; // Recupera il token dalla query string
@@ -432,6 +509,10 @@ app.get('/chat/:chatId', async (req, res) => {
          u.id as user_id,
          c.description,
          u_admin.nickname as nickname_admin, 
+         CASE 
+            WHEN u.id = u_admin.id THEN 1
+            ELSE 0
+         END AS am_i_admin,
          u_admin.id as user_admin_id,
          u_admin.subscription as user_admin_subscription,
          c.created_at      
@@ -853,14 +934,17 @@ io.on('connection', (socket) => {
     }
   });
 
-
-  socket.on("name_changed", async ( oldName, newName ) => {
+  socket.on("delete_chat_process", async ( chatId, token ) => {
     if (socket.chatId) {
-      await redisClient.srem(`online_users:${socket.chatId}`, `${socket.nickname}####${socket.userId}`);
-      socket.nickname = newName;
-      await redisClient.sadd(`online_users:${socket.chatId}`, `${newName}####${socket.userId}`);
-      const users = await redisClient.smembers(`online_users:${socket.chatId}`);
-      io.to(socket.chatId).emit("alert_message", {message : `${oldName} ha cambiato nome in ${newName}`, users });
+      if (deleteRoom(chatId, token)) {
+        io.to(socket.chatId).emit("alert_message", {message : "The administrator has removed the chat from our system!", users: null, deleteChat: true});
+      }
+    }
+  });
+
+  socket.on("update_chat_data", async ( name, description ) => {
+    if (socket.chatId) {
+      io.to(socket.chatId).emit("alert_message", {message : "The administrator has changed some chat values", users: null, editChat: { name, description }, });
     }
   });
 

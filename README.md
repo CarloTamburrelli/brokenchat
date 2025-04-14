@@ -6,12 +6,12 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 **TODO**
 
-- sistema di ban e modifica dati room
+- sistema di ban
 - messaggi privati:
   - invio notifiche FCM (dobbiamo avere prima un server?)
   - mostra messaggio gia' letto o da leggere con numerino e grafica diversa in messaggi privati
   - mostra online con scritta celeste nel nome o grigio (online su tutta la piattaforma, mi raccomand)
-- sistema header nei messaggi privati (si vede la stessa cosa nelle chat pubbliche)
+  - metti km di distanza (con spunta opzionale se vuoi disabilitare questa opzione :), puoi cliccare  sul km per annullare questa informazione pero' anche tu non vedrai questo!! :D
 - rendi i nickname univoci! :D
 
 
