@@ -9,6 +9,7 @@ import FilterMenu from '../tools/FilterMenu';
 import LocationRequestButton from "../tools/LocationRequestButton";
 import LoadingSpinner from '../tools/LoadingSpinner';
 import create_chat from '../assets/create_chat.png';
+import { welcomeMessages } from '../utils/consts';
 
 type Chatroom = {
   id: string;
@@ -37,6 +38,7 @@ export default function Home() {
   const { lat, lon, error } = useLocation(); // Recupera latitudine e longitudine
   const prevFilter = useRef<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  const [welcomeStr, setWelcomeStr] = useState<string>('');
   const [headerHeight, setHeaderHeight] = useState(0);
 
   const handleChangeNickname = async () => {
@@ -177,11 +179,17 @@ export default function Home() {
 
 
   useEffect(() => {
+
+    const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
+    setWelcomeStr(welcomeMessages[randomIndex]);
+
     setTimeout(() => {
       if (headerRef.current) {
         setHeaderHeight(headerRef.current.offsetHeight);
       }
     }, 100); // puoi aumentare tipo a 100ms se vuoi essere sicuro
+
+    
   }, []);
 
 
@@ -210,7 +218,7 @@ export default function Home() {
     <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
     {/* Immagine a sinistra del bottone */}
     <img src={create_chat} alt="Crea Chat" className="w-5 h-5" />
-    <span>Crea chat</span>
+    <span className='font-mono'>Crea chat</span>
   </button>
     </Link>
   </div>
@@ -239,8 +247,13 @@ export default function Home() {
   ) : (
     <>
       {nickname ? (
-        <h1 className="text-1xl font-bold my-4 text-gray-500">Hey, welcome back <span onClick={openNicknameModal} className='underline cursor-pointer'>{nickname}</span>!</h1>
-      ) : null}
+        <span><h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect inline-block">Hey, welcome back <span onClick={openNicknameModal} className='underline cursor-pointer'>{nickname}</span></h1></span>
+      ) : <span>
+      <h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect block break-words whitespace-normal">
+        {welcomeStr}
+      </h1>
+    </span>
+    }
       <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
         <HeaderBrokenChat alreadyJoined={nickname} />
       </div>

@@ -56,7 +56,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ selectedFilter, setSelectedFilt
           isMenuOpen ? 'bg-gray-400 rounded' : ''
         }`} />
         {/* Scritta del filtro selezionato */}
-        {(selectedFilter !== null)  && (<span className="ml-2 text-black hidden md:flex flex-1">{selectedFilter}</span>) }
+        {(selectedFilter !== null)  && (<span className="ml-2 text-black hidden md:flex flex-1 font-mono">{selectedFilter}</span>) }
       </div>
 
       {/* Menu di Filtro Popup */}
@@ -70,7 +70,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ selectedFilter, setSelectedFilt
               <button
                 key={filter}
                 onClick={() => handleFilterSelect(filter)}
-                className={`w-full text-left p-2 hover:bg-gray-200 rounded-lg ${
+                className={`w-full text-left p-2 hover:bg-gray-200 rounded-lg font-mono ${
                   selectedFilter === filter ? "font-bold" : ""
                 }`}
               >

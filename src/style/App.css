@@ -39,3 +39,30 @@
 .visited {
   color: #681da8;
 }
+
+
+@keyframes typing {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.typing-effect {
+  white-space: normal;   /* Assicura che il testo vada a capo */
+  word-wrap: break-word;  /* Impedisce che parole troppo lunghe escano dal contenitore */
+  overflow-wrap: break-word; /* Gestisce il wrapping delle parole */
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid #000; /* Simula il cursore */
+  animation: typing 4s steps(30) 1s 1 normal both, blink 0.75s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    border-color: transparent;
+  }
+}
