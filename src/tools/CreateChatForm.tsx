@@ -110,7 +110,7 @@ function CreateChatForm() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white">
+    <div className="flex flex-col h-screen max-w-3xl mx-auto">
       <Link to="/" className="flex justify-center items-center">
         <img src={Logo} />
       </Link>

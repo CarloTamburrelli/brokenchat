@@ -22,6 +22,7 @@ interface ChatListProps {
   nearbyChats?: GroupedChats;  // Lista delle chat limitrofe (opzionale)
   popularChats?: Chat[]; // Lista delle chat popolari (opzionale)
   myChats?: Chat[]; // Lista delle chat popolari (opzionale)
+  headerHeight: number;
 }
 
 const roleLabels: { [key: number]: string } = {
@@ -30,16 +31,17 @@ const roleLabels: { [key: number]: string } = {
   3: "Utente",
 };
 
-const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats }) => {
+const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats, headerHeight }) => {
+
   
   if (nearbyChats && Object.keys(nearbyChats).length > 0) {
     return (
-      <div className="w-full shadow-md bg-">
-        <div className="w-full max-h-[60vh] overflow-y-auto">
+      <div className="w-full shadow-md">
+        <div className="w-full">
           {Object.entries(nearbyChats).map(([groupId, chatList]) => (
             <div key={groupId} className="w-full flex relative border-b-2 border-gray-400">
               {/* Div sinistro con la lista delle chat */}
-              <div className="flex-1 flex flex-col space-y-4">
+              <div className="flex-1 flex flex-col space-y-4 ">
                   {chatList.map((chat: any) => (
                       <Link to = {`/chat/${chat.id}`}>
                           <div key={chat.id} className="py-3 px-3 ">
@@ -60,8 +62,8 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats 
                   ))}
               </div>
               {/* Div destro con la distanza */}
-              <div className="w-1/4 ml-2 relative flex items-start justify-center">
-                <h2 className="text-lg font-bold sticky top-2">
+              <div className="w-1/4 ml-2 pt-2 sticky h-12" style={{ top: `${headerHeight}px` }}>
+                <h2 className="text-lg font-bold">
                   {groupId} km
                 </h2>
               </div>
@@ -73,7 +75,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats 
   } else if (popularChats && popularChats.length > 0) {
     return (
       <div className="w-full shadow-md">
-        <div className="w-full max-h-[50vh] overflow-y-auto">
+        <div className="w-full">
           {popularChats.map((chat) => (
             <div key={chat.id} className="w-full flex relative border-b-2 border-gray-300">
               {/* Contenitore della chat */}
@@ -101,7 +103,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats 
   } else if (myChats && myChats.length > 0) {
     return (
       <div className="w-full shadow-md">
-        <div className="w-full max-h-[50vh] overflow-y-auto">
+        <div className="w-full">
           {myChats.map((chat) => (
             <div key={chat.id} className="w-full flex relative border-b-2 border-gray-300">
               {/* Contenitore della chat */}

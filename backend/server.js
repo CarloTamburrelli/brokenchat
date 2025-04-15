@@ -259,7 +259,9 @@ app.post("/report", async (req, res) => {
 
 
 app.get('/get-user', async (req, res) => {
-  const { token, lat, lon, filter } = req.query;  // Prendi i parametri dalla query
+  const { token, filter, lat, lon } = req.query;  // Prendi i parametri dalla query
+
+  //const [lat, lon] = ["44.4974349", "11.3714015"];
 
   const FILTERS = ["Popolari", "Vicine", "Mie"];
 

@@ -13,7 +13,7 @@ const LocationRequestButton: React.FC = () => {
   return (
     <button
   onClick={requestLocation}
-  className="w-screen mx-5 sm:mx-0 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg text-sm sm:text-base lg:text-md flex items-center justify-center"
+  className="w-screen mt-2 mx-2 sm:mx-0 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg text-sm sm:text-base lg:text-md flex items-center justify-center"
 >
   {/* Triangolo di attenzione */}
   <img 

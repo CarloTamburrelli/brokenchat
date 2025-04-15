@@ -8,6 +8,7 @@ import my_messages from '../assets/my_messages.png';
 import FilterMenu from '../tools/FilterMenu';
 import LocationRequestButton from "../tools/LocationRequestButton";
 import LoadingSpinner from '../tools/LoadingSpinner';
+import create_chat from '../assets/create_chat.png';
 
 type Chatroom = {
   id: string;
@@ -35,6 +36,8 @@ export default function Home() {
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
   const { lat, lon, error } = useLocation(); // Recupera latitudine e longitudine
   const prevFilter = useRef<string | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const handleChangeNickname = async () => {
     try {
@@ -172,23 +175,43 @@ export default function Home() {
     prevFilter.current = selectedFilter;
   }, [selectedFilter]);
 
-  const HeaderBrokenChat: React.FC = () => {
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+    }, 100); // puoi aumentare tipo a 100ms se vuoi essere sicuro
+  }, []);
+
+
+  interface HeaderBrokenChatProps {
+    alreadyJoined: string | null;  // Accettiamo il nickname come variabile
+  }
+  
+
+  const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({ alreadyJoined }) => {
+
     return (
-      <div className='w-full mb-3'>
-      <div className="flex justify-center items-center mb-2 w-full pl-5 pr-5">
+      <div className='w-full my-2'>
+      <div className="flex justify-center items-center w-full pl-2 pr-2">
   {/* Icona Messaggi Privati */}
+  {alreadyJoined && alreadyJoined !== "" && (
   <div className="md:flex flex-1 justify-start">
     <Link to="/private-messages">
       <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
     </Link>
   </div>
+  )}
 
   {/* Bottone Crea Chat */}
-  <div className="flex justify-center md:flex-1">
+  <div className={`flex ${alreadyJoined && alreadyJoined !== "" && "justify-center"} md:flex-1`}>
     <Link to="/create-chat">
-      <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800">
-        Crea chat
-      </button>
+    <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
+    {/* Immagine a sinistra del bottone */}
+    <img src={create_chat} alt="Crea Chat" className="w-5 h-5" />
+    <span>Crea chat</span>
+  </button>
     </Link>
   </div>
 
@@ -206,20 +229,23 @@ export default function Home() {
 
 
   return (
-    <div className="flex flex-col justify-center items-center max-w-3xl mx-auto bg-white">
+    <div className="flex flex-col justify-center items-center max-w-3xl mx-auto">
   <img src={Logo} 
   alt="Logo" 
-  className="w-40 h-32 sm:w-52 sm:h-40 md:w-48 md:h-36 lg:w-56 lg:h-55 xl:w-45 xl:h-55"  />
+  className="w-40 h-[137px] sm:w-52 sm:h-[179px] md:w-48 md:h-[165px] lg:w-56 lg:h-[193px] xl:w-45 xl:h-[155px]"  />
   {loading ? ( 
     // Spinner mentre i dati vengono caricati
     <LoadingSpinner />
   ) : (
     <>
       {nickname ? (
-        <h1 className="text-1xl font-bold my-4 text-gray-500">Hey bentornato, <span onClick={openNicknameModal} className='underline cursor-pointer'>{nickname}</span>!</h1>
+        <h1 className="text-1xl font-bold my-4 text-gray-500">Hey, welcome back <span onClick={openNicknameModal} className='underline cursor-pointer'>{nickname}</span>!</h1>
       ) : null}
-      <HeaderBrokenChat />
-      <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} />
+      <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
+        <HeaderBrokenChat alreadyJoined={nickname} />
+      </div>
+      <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} 
+  headerHeight={headerHeight} />
     </>
   )}
 
