@@ -6,7 +6,6 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 **TODO**
 
-- sistema di ban
 - messaggi privati:
   - invio notifiche FCM (dobbiamo avere prima un server?)
   - mostra messaggio gia' letto o da leggere con numerino e grafica diversa in messaggi privati

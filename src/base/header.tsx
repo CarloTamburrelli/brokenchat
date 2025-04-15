@@ -1,5 +1,4 @@
 import { Disclosure, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { useState } from 'react';
 import Logo from '../assets/logo_without_text.png';
 import edit from '../assets/edit.png';
 import ban_user from '../assets/ban_user.png';
@@ -25,7 +24,7 @@ export default function Header({headerName='', usersList=[], editChat = () => {}
   if (AmIAdmin == 1) {
     adminNavigation = [
       { name: 'Edit Chat', href: '#', current: true, onClick: editChat, icon: edit },
-      { name: 'Ban User', href: '#', current: true, onClick: banUser, icon: ban_user },
+      { name: 'List Ban Users', href: '#', current: true, onClick: banUser, icon: ban_user },
     ]
   }
 
@@ -87,7 +86,7 @@ export default function Header({headerName='', usersList=[], editChat = () => {}
         </MenuButton>
           <MenuItems
             transition
-            className="absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+            className="absolute right-0 z-10 mt-2 w-52 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
           >
             {adminNavigation.map((item) => (
               <MenuItem key={item.name}>

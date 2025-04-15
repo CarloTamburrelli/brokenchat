@@ -14,6 +14,9 @@ import { fetchFile } from '@ffmpeg/util';
 import useLongPress from './useLongPress';
 import {generateUniqueId} from '../utils/generateUniqueId';
 import ChatSettingsModal from './ChatSettingsModal';
+import ban_user_w from '../assets/ban_user_w.png';
+import BannedModal from './BannedModal';
+import BannedUsersModal from './BannedUsersModal';
 
 
 type MessageData = {
@@ -37,8 +40,8 @@ interface ChatData {
 }
 
 interface ProfileUser { 
-  id: number | null;
-  nickname: string | null;
+  id: number;
+  nickname: string;
   subscription: string;
 }
 
@@ -79,9 +82,13 @@ function ChatPage() {
   const [showInfoChatModal, setShowInfoChatModal] = useState(false);
   const [showUserListModal, setShowUserListModal] = useState(false);
   const [usersList, setUsersList] = useState<string[]>([]);
+  const [banUsersList, setBanUsersList] = useState<string[]>([]);
   const [isLoadingConverting, setIsLoadingConverting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
+  const [isBanModalOpen, setIsBanModalOpen] = useState(false);
+
   const ffmpeg = new FFmpeg();
   const maxHeight = 150;
   let isScrolling = false;
@@ -142,6 +149,10 @@ function ChatPage() {
           created_at: formatDate(response_json.chat.created_at)
         });
 
+        if (response_json.chat.am_i_admin == 1) {
+          setBanUsersList(response_json.ban_user_list)
+        }
+
         console.log("YOO",response_json)
 
         if (response_json.chat.user_id === null) {
@@ -191,6 +202,17 @@ function ChatPage() {
               delete_chat: false,
             },
           ]);
+        });
+
+
+        socket.off('banned');
+
+        socket.on('banned', () => {
+          socket.off('join-room');
+          socket.off('broadcast_messages');
+          socket.off('alert_message');
+          setIsBanned(true);
+          setIsChatLocked(true);
         });
 
         socket.off('alert_message');
@@ -263,6 +285,7 @@ function ChatPage() {
       // Cleanup: rimuovi il listener quando il componente si smonta
       //socket.disconnect()
       socket.emit("leave-room", chatId);
+      socket.off('banned');
       socket.off('broadcast_messages');
       socket.off('join-room');
       socket.off('alert_message');
@@ -547,6 +570,52 @@ function ChatPage() {
     }
   };
 
+  const handleBanUser = async () => {
+    if (!profileToShow) return;
+  
+    const confirmBan = window.confirm(`Are you sure you want to ban ${profileToShow.nickname}?`);
+    if (!confirmBan) return;
+  
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+  
+      await fetchWithPrefix(`/ban/${chatId}/${profileToShow.id}?token=${token}`, {
+        method: 'PUT',
+      });
+      setBanUsersList(prev => [...prev, `${profileToShow.nickname}####${profileToShow.id}`]);
+      setProfileToShow(null);
+      setShowToastMessage(`${profileToShow.nickname} has been banned.`);
+      setTimeout(() => setShowToastMessage(null), 3000);
+    } catch (error) {
+      console.error("Error banning user:", error);
+      alert("Failed to ban user.");
+    }
+  };
+
+  const handleUnbanUser = async (nickname: string, userId: number) => {
+    const confirmUnban = window.confirm(`Are you sure you want to unban ${nickname}?`);
+    if (!confirmUnban) return;
+  
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+  
+      await fetchWithPrefix(`/unban/${chatId}/${userId}?token=${token}`, {
+        method: 'PUT',
+      });
+  
+      setBanUsersList((prev) => prev.filter(user => !user.endsWith(`####${userId}`)));
+      setShowToastMessage(`${nickname} has been unbanned.`);
+      setTimeout(() => setShowToastMessage(null), 3000);
+      setIsBanModalOpen(false)
+    } catch (error) {
+      console.error("Error unbanning user:", error);
+      alert("Failed to unban user.");
+    }
+  };
+  
+
 
   const handleReport = async (msg: MessageData) => {
     if (!window.confirm("Are you sure you want to report this user?")) return;
@@ -625,7 +694,7 @@ function ChatPage() {
           className={`px-2 relative flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
             ${msg.user_id === userId ? "ml-auto justify-end" : "mr-auto justify-start"}
             ${isSameUserAsPrevious ? "pt-1": "pt-3"}
-            ${selectedMessageId === msg.id ? "bg-gray-700 no-select pointer-events-none" : "bg-transparent"}`}
+            ${selectedMessageId === msg.id ? "bg-gray-800 no-select pointer-events-none" : "bg-transparent"}`}
           {...longPressEvent(msg.id)}
         >
       
@@ -652,7 +721,7 @@ function ChatPage() {
                   inputRef.current?.focus();
                 }, 100); // Ritardo di 100ms per evitare il click accidentale
               }}>
-                Rispondi
+                Reply
               </button>
 
               <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
@@ -672,7 +741,7 @@ function ChatPage() {
               }}
               
               >
-                Copia
+                Copy
               </button>
       
               <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
@@ -772,7 +841,7 @@ function ChatPage() {
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
       <div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
-        <Header AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => {}} />
+        <Header AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => setIsBanModalOpen(true)} />
       </div>
 
       {showInfoChatModal && (
@@ -804,7 +873,7 @@ function ChatPage() {
           {/* Info Admin & Data Creazione */}
           <div className="text-sm text-gray-800 space-y-1">
             <div><span className="font-semibold">Admin:</span> <span className='underline cursor-pointer'
-    onClick={() => setProfileToShow(admin)} // Funzione da eseguire al click
+    onClick={() => {(admin!.id !== userId) && setProfileToShow(admin)}} // Funzione da eseguire al click
   >{admin?.nickname}
   </span></div>
             <div><span className="font-semibold">Creata il:</span> {chatData!.created_at}</div>
@@ -816,7 +885,7 @@ function ChatPage() {
 
 {profileToShow && (
         <div
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-30"
         onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
       >
         <div
@@ -836,15 +905,32 @@ function ChatPage() {
       
           {/* Dettagli Profilo */}
           <div className="text-sm text-gray-800 space-y-2">
-            <div><span className="font-semibold">Registrato il:</span> {profileToShow?.subscription || "Data non disponibile"}</div>
+            <div><span className="font-semibold">Registered on:</span> {profileToShow.subscription || "Data non disponibile"}</div>
           </div>
+
+          <div className="mt-4 flex items-center justify-center space-x-4">
       
-          {/* Bottone per scrivere in privato */}
-          <div className="mt-4 flex items-center justify-center">
+          {(chatData!.am_i_admin == 1) && (
+            <>
+            {banUsersList.includes(`${profileToShow.nickname}####${profileToShow.id}`) ? (
+              <div className="py-2 text-red-600 flex items-center justify-center">
+                <span>Already banned</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleBanUser()}
+                className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center space-x-2"
+              >
+                <img src={ban_user_w} alt="Ban Icon" className="w-5 h-5" />
+                <span>Ban</span>
+              </button>
+            )}
+          </>
+          )}
             <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
-              <Link to={`/private-messages/new/${profileToShow?.id}?goback=${chatId}`} className="flex items-center space-x-2">
+              <Link to={`/private-messages/new/${profileToShow.id}?goback=${chatId}`} className="flex items-center space-x-2">
                 <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
-                <span>Scrivi in privato</span>
+                <span>Private message</span>
               </Link>
             </button>
           </div>
@@ -879,6 +965,16 @@ function ChatPage() {
     onSave={handleSaveSettings}
     onDeleteChat={handleDeleteChat}
   />
+
+<BannedModal isOpen={isBanned} onClose={() => setIsBanned(false)} />
+
+<BannedUsersModal
+  isOpen={isBanModalOpen}
+  setIsOpen={setIsBanModalOpen}
+  bannedUsers={banUsersList} // tipo: ["Luca####23", "Giulia####17"]
+  onUnbanClicked={handleUnbanUser}
+  onUserClicked={onUserClicked}
+/>
 
 
 {showModal && (

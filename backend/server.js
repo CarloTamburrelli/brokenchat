@@ -180,7 +180,8 @@ const getNearbyChats = async (token, lat, lon) => {
           `SELECT c.*, r.role_type, r.last_access
            FROM chats c
            LEFT JOIN users as u ON u.token = $1
-           LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id`
+           LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id 
+           WHERE r.role_type IS DISTINCT FROM 4`
       ,[token]);
       const allChats = allChatsResult.rows;
 
@@ -360,7 +361,7 @@ const getPopularChats = async (token) => {
      FROM chats c
      LEFT JOIN users as u ON u.token = $1
      LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
-     WHERE c.is_private = false
+     WHERE c.is_private = false AND r.role_type IS DISTINCT FROM 4
      `
   , [token]);
   const allChats = allChatsResult.rows;
@@ -515,7 +516,11 @@ app.get('/chat/:chatId', async (req, res) => {
          END AS am_i_admin,
          u_admin.id as user_admin_id,
          u_admin.subscription as user_admin_subscription,
-         c.created_at      
+         c.created_at,
+         CASE 
+            WHEN r.role_type = 4 THEN 1
+            ELSE 0
+         END AS is_banned       
        FROM chats as c
        LEFT JOIN users as u ON u.token = $2 
        LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
@@ -533,6 +538,10 @@ app.get('/chat/:chatId', async (req, res) => {
     // Restituisci i dati della chat
     const chatData = result.rows[0];
 
+    if (chatData.is_banned == 1) {
+      return res.status(403).json({ message: 'You have been banned from this chat by the administrator.' });
+    }
+
     const messagesResult = await pool.query(
       `SELECT m.id, u.nickname, m.message , m.user_id 
        FROM messages as m
@@ -541,6 +550,23 @@ app.get('/chat/:chatId', async (req, res) => {
        ORDER BY m.created_at ASC`, 
       [chatId]
     );
+
+
+    let banUsersList = [];
+
+    if (chatData.am_i_admin == 1) {
+      const banUsersListTmp = await pool.query(
+        `SELECT users.nickname || '####' || users.id AS banned_user
+         FROM users
+         JOIN roles ON users.id = roles.user_id
+         WHERE roles.chat_id = $1 AND roles.role_type = 4`,
+        [chatId]
+      );
+
+      banUsersList = banUsersListTmp.rows.map(row => Object.values(row)[0]);
+
+      console.log("finito", banUsersList)
+    }
 
     // Se la chat è privata e l'utente non è già dentro, bloccalo
     if (chatData.is_private && chatData.already_in === 0) {
@@ -560,12 +586,86 @@ app.get('/chat/:chatId', async (req, res) => {
 
     res.status(200).json({
       chat: chatData,
-      messages: messagesResult.rows
+      messages: messagesResult.rows,
+      ban_user_list: banUsersList,
     });
   } catch (err) {
     console.error('Errore nel recuperare i dati della chat:', err);
     res.status(500).json({ message: 'Errore nel recuperare i dati della chat' });
   }
+});
+
+app.put('/unban/:chatId/:userId', async (req, res) => {
+  const { chatId, userId } = req.params;
+  const { token } = req.query;
+
+  try {
+    // Verifica che il token appartenga a un admin nella chat
+    const adminCheck = await pool.query(
+      `SELECT users.id FROM users
+       JOIN roles ON users.id = roles.user_id
+       WHERE roles.chat_id = $1 AND roles.role_type = 1 AND users.token = $2`,
+      [chatId, token]
+    );
+
+    if (adminCheck.rowCount === 0) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Aggiorna il ruolo dell’utente da bannato a normale (role_type = 3)
+    await pool.query(
+      `UPDATE roles
+       SET role_type = 3
+       WHERE user_id = $1 AND chat_id = $2`,
+      [userId, chatId]
+    );
+
+    res.status(200).json({ message: 'User unbanned successfully.' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+app.put('/ban/:chatId/:userId', async (req, res) => {
+  const { chatId, userId } = req.params;
+  const token = req.query.token;
+
+  try {
+    const result = await pool.query(`
+      SELECT admin.id AS admin_id, target.nickname AS target_name
+      FROM users AS admin
+      JOIN roles ON admin.id = roles.user_id
+      JOIN users AS target ON target.id = $3
+      WHERE roles.chat_id = $1 AND roles.role_type = 1 AND admin.token = $2
+    `, [chatId, token, userId]);
+
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: "You are not an admin of this chat." });
+    }
+
+    await pool.query(
+      `UPDATE roles SET role_type = 4 WHERE user_id = $1 AND chat_id = $2`,
+      [userId, chatId]
+    );
+
+    await redisClient.srem(`online_users:${chatId}`, `${result.rows[0].target_name}####${userId}`);
+
+    io.to(`user:${chatId}_${userId}`).emit('banned', {
+      message: "You have been banned from the chat",
+      chatId,
+    })
+
+    const users = await redisClient.smembers(`online_users:${chatId}`);
+    io.to(chatId).emit('alert_message', { message: "", users });
+
+    res.status(200).json({});
+  } catch (err) {
+    console.error("Error banning user:", err);
+    res.status(500).send("Error during user ban for user_id="+userId);
+  }
+
 });
 
 app.get("/users", async (req, res) => {
@@ -876,6 +976,7 @@ io.on('connection', (socket) => {
     socket.chatId = chatId;
     socket.nickname = nickname;
     socket.join(chatId);
+    socket.join(`user:${chatId}_${user_id}`); //for ban
     await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
     const users = await redisClient.smembers(`online_users:${chatId}`);
     io.to(chatId).emit('alert_message', { message: "", users });

@@ -23,11 +23,6 @@ interface UserListModalProps {
 
   const handleClose = () => setIsOpen(false);
 
-  const getUserId = (user: string) => {
-    const parts = user.split('####');
-    return parts.length > 1 ? parseInt(parts[1], 10) : 0;  // Restituisce l'ID dopo '####'
-  };
-
   return (
     <div
       className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20"
