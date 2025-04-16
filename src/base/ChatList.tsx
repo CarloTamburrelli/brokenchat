@@ -43,22 +43,25 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
               {/* Div sinistro con la lista delle chat */}
               <div className="flex-1 flex flex-col space-y-4 ">
                   {chatList.map((chat: any) => (
-                      <Link to = {`/chat/${chat.id}`}>
-                          <div key={chat.id} className="py-3 px-3 ">
-                          {/* Contenitore del nome e popolarità */}
-                          <div className="flex justify-between items-center w-full">
-                              <div className={`text-lg font-semibold text-left ${chat.role_type ? "visited" : ""}`}>{chat.name}</div>
-                              <div className="flex items-center text-sm text-gray-600">
-                                <img src={users} alt="Users" className="w-4 h-4 mr-1" /> 
-                                {chat.popularity}
-                              </div>
+                      <Link to={`/chat/${chat.id}`}>
+                      <div key={chat.id} className="py-3 px-3">
+                        {/* Contenitore del nome e popolarità */}
+                        <div className="flex justify-between items-start w-full">
+                          <div className={`text-lg font-semibold text-left break-words max-w-[80%] ${chat.role_type ? "visited" : ""}`}>
+                            {chat.name}
                           </div>
-                          {/* Descrizione sotto */}
-                          <div className="mt-1 text-sm text-gray-700 text-left">
-                              {chat.description}
+                          <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
+                            <img src={users} alt="Users" className="w-4 h-4 mr-1" />
+                            {chat.popularity}
                           </div>
-                          </div>
-                      </Link>
+                        </div>
+                    
+                        {/* Descrizione sotto */}
+                        <div className="mt-1 text-sm text-gray-700 text-left break-words">
+                          {chat.description}
+                        </div>
+                      </div>
+                    </Link>                    
                   ))}
               </div>
               {/* Div destro con la distanza */}
@@ -80,20 +83,24 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
             <div key={chat.id} className="w-full flex relative border-b-2 border-gray-300">
               {/* Contenitore della chat */}
               <div className="flex-1 flex flex-col space-y-4">
-                <Link to={`/chat/${chat.id}`}>
-                  <div className="py-3 px-3">
-                    {/* Intestazione: Nome e popolarità */}
-                    <div className="flex justify-between items-center">
-                      <div className={`text-lg font-semibold text-left ${chat.role_type ? "visited" : ""}`}>{chat.name}</div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <img src={users} alt="Users" className="w-4 h-4 mr-1" />
-                        {chat.popularity}
-                      </div>
+              <Link to={`/chat/${chat.id}`}>
+                <div className="py-3 px-3">
+                  {/* Intestazione: Nome e popolarità */}
+                  <div className="flex justify-between items-start">
+                    <div className={`text-lg font-semibold text-left break-words max-w-[80%] ${chat.role_type ? "visited" : ""}`}>
+                      {chat.name}
                     </div>
-                    {/* Descrizione */}
-                    <div className="mt-1 text-sm text-gray-700 text-left">{chat.description}</div>
+                    <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
+                      <img src={users} alt="Users" className="w-4 h-4 mr-1" />
+                      {chat.popularity}
+                    </div>
                   </div>
-                </Link>
+                  {/* Descrizione */}
+                  <div className="mt-1 text-sm text-gray-700 text-left break-words">
+                    {chat.description}
+                  </div>
+                </div>
+              </Link>
               </div>
             </div>
           ))}
@@ -111,20 +118,26 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
                 <Link to={`/chat/${chat.id}`}>
                   <div className="py-3 px-3">
                     {/* Intestazione: Nome e popolarità */}
-                    <div className="flex justify-between items-center">
-                      <div className="text-lg font-semibold text-left visited">{chat.name}</div>
-                      <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex justify-between items-start">
+                      <div className="text-lg font-semibold text-left visited break-words max-w-[80%]">
+                        {chat.name}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
                         <img src={users} alt="Users" className="w-4 h-4 mr-1" />
                         {chat.popularity}
                       </div>
                     </div>
+
                     {chat.role_type && chat.last_access && (
                       <div className="text-sm text-gray-800 font-medium mt-1 text-left">
                         Ultimo accesso come <strong>{roleLabels[chat.role_type]}</strong> il <strong>{formatDate(chat.last_access)}</strong>
                       </div>
                     )}
+
                     {/* Descrizione */}
-                    <div className="mt-1 text-sm text-gray-700 text-left">{chat.description}</div>
+                    <div className="mt-1 text-sm text-gray-700 text-left break-words">
+                      {chat.description}
+                    </div>
                   </div>
                 </Link>
               </div>

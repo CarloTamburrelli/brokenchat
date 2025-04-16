@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from "../utils/api";
-import { getPosition } from "../utils/geolocation";
+import { isValidNickname } from "../utils/validations";
+import { useLocation } from "../base/LocationContext";
+import { getLocationName } from "../utils/location";
 
 
 // Tipi per i dati del form
 interface ChatData {
   chatName: string;
-  yourName: string;
+  yourNickname: string;
   //isPrivate: boolean;
   token?: string;
   description: string;
@@ -19,7 +21,12 @@ interface ChatData {
 function CreateChatForm() {
   const [isRegistred, setIsRegistred] = useState<boolean>(false);
   const [chatName, setChatName] = useState<string>("");
-  const [yourName, setYourName] = useState<string>("");
+  const [yourNickname, setyourNickname] = useState<string>("");
+  const [isAValidUsername, setIsAValidUsername] = useState<boolean>(false);
+
+  const [locationName, setLocationName] = useState<string | null>(null);
+
+  const { lat, lon } = useLocation(); // Recupera latitudine e longitudine
   //const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +39,7 @@ function CreateChatForm() {
     if (token) {
       try {
         const response = await fetchWithPrefix(`/get-user?token=${token}`);
-        setYourName(response.nickname)
+        setyourNickname(response.nickname)
         setIsRegistred(true)
         // Qui puoi usare i dati dell'utente nel tuo componente React
       } catch (error: any) {
@@ -48,17 +55,57 @@ function CreateChatForm() {
     }, []);
 
 
+  useEffect(() => {
+
+    if (isValidNickname(yourNickname)) {
+      setIsAValidUsername(true);
+    } else {
+      setIsAValidUsername(false);
+    }
+
+  }, [yourNickname])
+
+
   const validateForm = () => {
     if (chatName.trim() === '') {
-      setError('Il nome della chat è obbligatorio');
+      setError('Chat name is required');
       return false;
-    } else if (yourName.trim() === '') {
-      setError('Inserisci il tuo nome che utilizzerai nella chat!');
+    } else if (!isValidNickname(yourNickname)) {
+      setError('');
+      return false;
+    } else if (description.trim() === '') {
+      setError(' Add a short description to let others know what this chat is about.');
+      return false;
+    } else if (chatName.length < 6) {
+      setError('Chat name must contain at least 6 characters');
+      return false;
+    } else if (description.length < 10) {
+      setError('Chat description must contain at least 10 characters');
       return false;
     }
     setError('');
     return true;
   };
+
+  useEffect(() => {
+
+    if (lat && lon) {
+      getLocationName(lat, lon)
+        .then(name => {
+          if (name) {
+            setLocationName(name);
+          } else if (lat && lon) {
+            setLocationName(`lat: ${lat.toFixed(5)}, lon: ${lon.toFixed(5)}`);
+          }
+        })
+        .catch(err => {
+          console.error("Errore durante il recupero della località:", err);
+          if (lat && lon) {
+            setLocationName(`lat: ${lat.toFixed(5)}, lon: ${lon.toFixed(5)}`);
+          }
+        });
+    }
+  }, [lat, lon]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,15 +114,13 @@ function CreateChatForm() {
 
     try {
 
-      const position = await getPosition();
-
       let requestBody: ChatData = {
         chatName,
-        yourName,
+        yourNickname,
         //isPrivate,
         description,
-        latitude: position.latitude, // Aggiungi la latitudine
-        longitude: position.longitude, // Aggiungi la longitudine
+        latitude: lat!, // Aggiungi la latitudine
+        longitude: lon!, // Aggiungi la longitudine
       };
 
       const token = localStorage.getItem('authToken');
@@ -115,15 +160,16 @@ function CreateChatForm() {
         <img src={Logo} />
       </Link>
       <form onSubmit={handleSubmit} className="mt-5 w-full p-2">
-        <div className="flex flex-col items-center gap-4 justify-center">
-        {isRegistred ? <span>Nickname attuale: <span className="font-bold">{yourName}</span></span> : <input
+        <div className="flex flex-col items-center gap-4 justify-center px-3">
+        {isRegistred ? <span>Current Nickname: <span className="font-bold">{yourNickname}</span></span> : <input
             type="text"
-            placeholder="Your Name"
-            value={yourName}
-            onChange={(e) => setYourName(e.target.value)}
+            placeholder="Your Nickname"
+            value={yourNickname}
+            maxLength={17}
+            onChange={(e) => setyourNickname(e.target.value)}
             className="p-2 border rounded w-full md:w-[400px]"
           />}
-          
+          {!isRegistred && ((isAValidUsername) ? (<span className="text-green-500 font-mono">The Nickname is valid 😎</span>) : (yourNickname && yourNickname.length > 0) && (<span className="text-red-500 font-mono">Nickname not valid 😞<br />Minimum <b>6</b> characters and do not use special symbols, only numbers and _ is allowed</span>))}
           <input
             maxLength={60}
             type="text"
@@ -139,26 +185,35 @@ function CreateChatForm() {
             onChange={(e) => setDescription(e.target.value)}
             className="p-2 border rounded-au w-full md:w-[400px] h-32"
           />
-          {/*<label className="flex items-center gap-2">
-            <span>Private:</span>
-            <input
-              type="checkbox"
-              checked={isPrivate}
-              onChange={() => setIsPrivate(!isPrivate)}
-              className="accent-blue-500 w-5 h-5"
-            />
-          </label>*/}
-        </div>
 
-        <button
-          type="submit"
-          className="bg-blue-500 text-white p-2 rounded mt-4"
-        >
-          Create Chat
-        </button>
+          <div className="md:w-[400px] text-sm text-gray-500 text-center mt-2 font-mono">
+            This chat will be visible starting from: <br/> <strong>
+            {(locationName != null) ? (`${locationName} 📍`) : ("Geolocation permissions not accepted")}
+            </strong>
+          </div>
+
+          <br /><br />
+
+
+
+          <span className="md:w-[400px] text-gray-500 font-mono text-sm text-center mb-4">
+            By creating a chat, you confirm that you will respect others, avoid offensive language, and help keep Broken Chat a friendly and safe place for everyone ✨
+          </span>
+
+        </div>
+        
+
+        {error && <p className="text-red-500 my-4">{error}</p>}
+        <div className="w-full flex justify-center mb-5">
+          <button
+            type="submit"
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-indigo-500 hover:to-blue-500 transition-all duration-300 text-white font-semibold py-2 px-6 rounded-xl shadow-lg hover:shadow-xl active:scale-95 w-full md:w-[400px]"
+          >
+            🚀 Confirm
+          </button>
+        </div>
       </form>
 
-      {error && <p className="text-red-500 mt-2">{error}</p>}
       {successMessage && <p className="text-green-500 mt-2">{successMessage}</p>}
     </div>
   );

@@ -47,10 +47,15 @@ app.get('/', async (req, res) => {
   res.status(200).json({ message: 'Very nice' });
 });
 
+const isValidNickname = (nickname) => {
+  const regex = /^[a-zA-Z0-9_]{6,17}$/;
+  return regex.test(nickname);
+};
+
 
 // Rotta per creare una nuova chat
 app.post('/create-chat', async (req, res) => {
-  const { chatName, yourName, description, token, latitude, longitude } = req.body;
+  const { chatName, yourNickname, description, token, latitude, longitude } = req.body;
 
   try {
     // Verifica se esiste già un utente con quel token
@@ -61,7 +66,7 @@ app.post('/create-chat', async (req, res) => {
 
     let userId;
     let newToken = jwt.sign(
-      { nickname: yourName },
+      { nickname: yourNickname },
       process.env.SECRET_KEY,
       { expiresIn: '30d' } // Imposta la scadenza del token
     );
@@ -76,16 +81,35 @@ app.post('/create-chat', async (req, res) => {
         [newToken, userId]
       );
     } else {
+
+      if (!isValidNickname(yourNickname)) {
+        return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+      }
+
+      const check = await pool.query(
+        `SELECT 1 FROM users WHERE LOWER(nickname) = LOWER($1) LIMIT 1`,
+        [yourNickname]
+      );
+    
+      if (check.rowCount > 0) {
+        return res.status(409).json({ message: "Nickname already used!" });
+      }
+
       // Se l'utente non esiste, crea un nuovo utente
       // Genera un nuovo token
 
       const userResult = await pool.query(
         'INSERT INTO users (nickname, token, subscription) VALUES ($1, $2, NOW()) RETURNING id',
-        [yourName, newToken] // role_type = 1 → Admin
+        [yourNickname, newToken] // role_type = 1 → Admin
       );
 
       userId = userResult.rows[0].id;
 
+    }
+
+
+    if ((chatName && chatName.length < 6) || (description && description.length < 10)) {
+      return res.status(400).json({ message: 'The chat name or description is not valid' });
     }
 
     // Salva la chat nel database PostgreSQL
@@ -148,7 +172,7 @@ const getMyChats = async (token) => {
      FROM chats c
      JOIN roles r ON c.id = r.chat_id
      JOIN users u ON u.id = r.user_id
-     WHERE u.token = $1
+     WHERE u.token = $1 AND r.role_type IS DISTINCT FROM 4
      ORDER BY r.last_access DESC;`,
     [token]  // Token dell'utente
   );
@@ -950,6 +974,21 @@ app.post("/update-nickname", async (req, res) => {
   const { nickname, token } = req.body;
 
   try {
+
+    if (!isValidNickname(nickname)) {
+      return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+    }
+
+    const check = await pool.query(
+      `SELECT 1 FROM users WHERE LOWER(nickname) = LOWER($1) LIMIT 1`,
+      [nickname]
+    );
+  
+    if (check.rowCount > 0) {
+      return res.status(409).json({ message: "Nickname already used!" });
+    }
+
+
     // Esegui l'UPDATE sul database
     const result = await pool.query(
       `UPDATE users SET nickname = $1 WHERE token = $2 RETURNING *`,
@@ -957,7 +996,7 @@ app.post("/update-nickname", async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Utente non trovato" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     return res.json({ message: "Nickname aggiornato con successo!" });

@@ -1,6 +1,4 @@
-const BROKEN_CHAT_BASE_URL = "http://192.168.1.2:5002";
-
-export { BROKEN_CHAT_BASE_URL };
+export const BROKEN_CHAT_BASE_URL = import.meta.env.VITE_SERVER_API_URL;
 
 export const welcomeMessages = [
     "Chats nearby, let's connect! 📍💬",
@@ -23,6 +21,7 @@ export const welcomeMessages = [
     "Privacy first, chat with us! 🔒👥",
     "Explore local chats, join now! 📍🚀",
     "Your neighborhood, your chat! 🏠💬",
+    "Chat with anyone, anywhere! 👥🌐",
     "Local chats, local fun! 🎉💬",
     "Chat nearby, privacy kept! 🔐📍",
     "Find chats in your area! 🔎💬",

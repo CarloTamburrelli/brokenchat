@@ -53,12 +53,11 @@ export default function Home() {
 
         setNickName(nicknameTmp);
         setShowNicknameModal(false);
-        setShowToastMessage("Name changed!");
+        setShowToastMessage("Nickname changed!");
         setTimeout(() => setShowToastMessage(null), 3000);
 
-    } catch (error) {
-      console.log(error);
-      alert("Impossibile cambiare nickname");
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
@@ -274,7 +273,7 @@ export default function Home() {
     >
       {/* Header con titolo e pulsante di chiusura */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-gray-800">Cambia il tuo nickname</h2>
+        <h2 className="text-lg font-bold text-gray-800">Change your nickname</h2>
         <button
           className="text-gray-500 hover:text-black text-2xl font-semibold"
           onClick={() => setShowNicknameModal(false)}
@@ -299,7 +298,7 @@ export default function Home() {
           onClick={handleChangeNickname}
           className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
         >
-          Conferma
+          Confirm
         </button>
       </div>
     </div>

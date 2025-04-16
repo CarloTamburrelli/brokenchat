@@ -815,7 +815,7 @@ function ChatPage() {
       
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
-              <span className={`no-select ${selectedMessageId === msg.id && "text-white"}`}>
+              <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
                 {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
               </span>
             ) : (

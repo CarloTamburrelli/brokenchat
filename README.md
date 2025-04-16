@@ -11,7 +11,8 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
   - mostra messaggio gia' letto o da leggere con numerino e grafica diversa in messaggi privati
   - mostra online con scritta celeste nel nome o grigio (online su tutta la piattaforma, mi raccomand)
   - metti km di distanza (con spunta opzionale se vuoi disabilitare questa opzione :), puoi cliccare  sul km per annullare questa informazione pero' anche tu non vedrai questo!! :D
-- rendi i nickname univoci! :D
+  - sistema emoji e verifica audio :D
+  - i messaggi lunghi non si spezzano nelle anteprime delle chat private :D (esempio: "sssssss...")
 
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
