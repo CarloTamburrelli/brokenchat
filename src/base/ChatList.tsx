@@ -27,8 +27,8 @@ interface ChatListProps {
 
 const roleLabels: { [key: number]: string } = {
   1: "Admin",
-  2: "Moderatore",
-  3: "Utente",
+  2: "Moderator",
+  3: "User",
 };
 
 const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats, headerHeight }) => {
@@ -130,7 +130,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
 
                     {chat.role_type && chat.last_access && (
                       <div className="text-sm text-gray-800 font-medium mt-1 text-left">
-                        Ultimo accesso come <strong>{roleLabels[chat.role_type]}</strong> il <strong>{formatDate(chat.last_access)}</strong>
+                        Last login as <strong>{roleLabels[chat.role_type]}</strong> on <strong>{formatDate(chat.last_access)}</strong>
                       </div>
                     )}
 

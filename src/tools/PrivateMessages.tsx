@@ -14,6 +14,8 @@ interface UserConversation {
   data?: string;
   is_read: boolean;
   last_message_time: string;
+  distance: number;
+  geo_hidden: boolean;
 }
 
 
@@ -77,7 +79,7 @@ const PrivateMessages = () => {
     <Link to="/" className="pointer-events-auto mr-4 text-2xl">
       <img alt="BrokenChat" src={Logo} className="h-8 block" />
     </Link>
-    <h2 className="text-lg font-semibold">My Messages</h2>
+    <h2 className="text-lg font-semibold">My Private Messages</h2>
   </div>
 
 
@@ -87,7 +89,7 @@ const PrivateMessages = () => {
       type="text"
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
-      placeholder="Cerca utente..."
+      placeholder="Search user 🔍"
       className="w-full p-3 focus:outline-none rounded-lg"
     />
     {searchQuery && (
@@ -112,24 +114,39 @@ const PrivateMessages = () => {
     conversations.map((conversation) => (
       <div className="shadow-lg rounded-lg p-4" key={conversation.id}>
         <Link to={`/private-messages/${conversation.last_message ? conversation.id : `new/${conversation.user_id}`}`}>
-          <div className="text-left">
-            <strong className="text-lg">{conversation.nickname}</strong>
-            {conversation.last_message && (
-              <p className="text-gray-600 text-sm flex justify-between items-center">
-                <span>{conversation.last_message}</span>
-                <span className="text-gray-400 italic text-xs">{formatDate(conversation.last_message_time)}</span>
-              </p>
-            )}
-          </div>
+        <div className="flex justify-between items-start w-full">
+  {/* Parte sinistra: nome + data + messaggio */}
+  <div className="text-left max-w-[100%]">
+    <strong className="text-lg block mb-1">{conversation.nickname}</strong>
+    
+    {conversation.last_message && (
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+      <p className="break-all whitespace-pre-wrap">
+        {conversation.last_message}
+      </p>
+      <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+        <span className="mx-1">·</span>
+        {formatDate(conversation.last_message_time)}
+      </span>
+    </div>
+    )}
+  </div>
+
+  {/* Parte destra: distanza */}
+  {(conversation.distance!= null) && (<div className="text-right text-gray-500 flex flex-col items-end min-w-[50px]">
+    <span className="text-xl1 font-semibold">{`${conversation.distance} km `}</span>
+  </div>)}
+</div>
+
         </Link>
       </div>
     ))
   ) : searchQuery.trim() !== "" ? (
-    <p className="text-gray-500 text-center mt-4">
-      Nessun utente trovato con la parola chiave "<span className="font-semibold">{searchQuery}</span>"
+    <p className="text-gray-500 text-center mt-4 font-mono">
+      No user found with the keyword "<span className="font-semibold">{searchQuery}</span>"
     </p>
-  ) : <p className="text-gray-500 text-center mt-4">
-  Nessuna conversazione avviata al momento.
+  ) : <p className="text-gray-500 text-center mt-4 font-mono">
+    No conversations started at the moment.
 </p>)}
   </div>
 </div>

@@ -38,7 +38,7 @@ function CreateChatForm() {
   
     if (token) {
       try {
-        const response = await fetchWithPrefix(`/get-user?token=${token}`);
+        const response = await fetchWithPrefix(`/am-i-registred?token=${token}`);
         setyourNickname(response.nickname)
         setIsRegistred(true)
         // Qui puoi usare i dati dell'utente nel tuo componente React

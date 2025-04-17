@@ -13,7 +13,7 @@ const LocationRequestButton: React.FC = () => {
   return (
     <button
   onClick={requestLocation}
-  className="w-screen mt-2 mx-2 sm:mx-0 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg text-sm sm:text-base lg:text-md flex items-center justify-center"
+  className="w-screen font-mono mt-2 mx-2 sm:mx-0 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg text-sm sm:text-base lg:text-md flex items-center justify-center"
 >
   {/* Triangolo di attenzione */}
   <img 
@@ -22,7 +22,7 @@ const LocationRequestButton: React.FC = () => {
     className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 mr-3"
   />
   {/* Testo del bottone */}
-  Non puoi vedere le chat vicine. Clicca qui per concedere i permessi di geolocalizzazione.
+  You can't see nearby chats. Click here to grant location permissions.
 </button>
 
   );

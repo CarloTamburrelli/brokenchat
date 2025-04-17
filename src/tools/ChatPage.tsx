@@ -17,6 +17,7 @@ import ChatSettingsModal from './ChatSettingsModal';
 import ban_user_w from '../assets/ban_user_w.png';
 import BannedModal from './BannedModal';
 import BannedUsersModal from './BannedUsersModal';
+import { isValidNickname } from '../utils/validations';
 
 
 type MessageData = {
@@ -74,6 +75,7 @@ function ChatPage() {
   const [profileToShow, setProfileToShow] = useState<ProfileUser | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [validUsername, setValidUsername] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEmojis, setShowEmojis] = useState(false);
@@ -158,7 +160,10 @@ function ChatPage() {
         if (response_json.chat.user_id === null) {
           //devi far apparire la modal che ti chiede che nome vuoi inserire
           setShowModal(true);
+          setIsChatLocked(true);
           return;
+        } else {
+          setIsChatLocked(false);
         }
 
         setNickname(response_json.chat.nickname);
@@ -291,7 +296,16 @@ function ChatPage() {
       socket.off('alert_message');
     };
   }, [chatId]);
+  
+  useEffect(() => {
+    if (isValidNickname(nickname)) {
+      setError(null);
+      setValidUsername(true)
+    } else {
+      setValidUsername(false)
+    }
 
+  }, [nickname]);
 
   useEffect(() => {
 
@@ -366,7 +380,6 @@ function ChatPage() {
   };
 
   const handleRegisterUser = async () => {
-    if (!nickname.trim()) return;
 
     try {
       const response = await fetchWithPrefix(`/register-user?`, {
@@ -379,6 +392,7 @@ function ChatPage() {
       window.location.reload(); // Ricarica la chat con il nuovo token
     } catch (error: any) {
       setError(error.message);
+      setValidUsername(false)
     }
   };
 
@@ -840,9 +854,9 @@ function ChatPage() {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
-      <div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
+      {(isChatLocked == false) && (<div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
         <Header AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => setIsBanModalOpen(true)} />
-      </div>
+      </div>) }
 
       {showInfoChatModal && (
         <div  
@@ -978,26 +992,53 @@ function ChatPage() {
 
 
 {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-5 rounded-md shadow-lg">
-            <h2 className="text-lg font-bold">Inserisci un nickname</h2>
-            <span className="justify-start">Prima di entrare nella chat devi avere un nickname!</span>
-            <input
-              maxLength={17}
-              type="text"
-              placeholder='Inserisci nickname'
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              className="border p-2 mt-2 w-full"
-            />
-            {error ? (<div className='text-red-600 font-bold text-xl'>{error}</div>) : null}
-            <div className="flex mt-4 justify-center">
-              <button onClick={handleRegisterUser} className="bg-blue-500 text-white px-4 py-2 rounded">
-                Conferma
-              </button>
-            </div>
-          </div>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4">
+        <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl">
+        <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-center">
+          Choose a nickname to join the chat:
+        </h2>
+
+          <span className="block mt-2 text-center">
+          {chatData?.name}
+    </span>
+          <input
+            maxLength={17}
+            type="text"
+            placeholder="Nickname"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            className="border p-3 mt-4 w-full rounded-md"
+          />
+      
+          {error && (
+            <div className="text-red-500 font-mono pt-3 text-sm">{error}</div>
+          )}
+      
+          {validUsername && (
+            <div className="text-green-500 font-mono pt-3 text-sm">The nickname is valid 😎</div>
+          )}
+
+          <div className="w-full flex justify-center mt-5">
+          <button
+              onClick={handleRegisterUser}
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-indigo-500 hover:to-blue-500 transition-all duration-300 text-white font-semibold py-2 px-6 rounded-xl shadow-lg hover:shadow-xl active:scale-95 w-full md:w-[400px]"
+          >
+            🚀 JOIN!
+          </button>
         </div>
+
+        <div className="mt-4 text-center">
+  <Link
+    to="/"
+    className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+  >
+    ← Back to homepage
+  </Link>
+</div>
+      
+        </div>
+      </div>
+      
       )}
   
       {/* Lista messaggi - Occupa tutto lo spazio disponibile */}
@@ -1029,8 +1070,6 @@ function ChatPage() {
         </div>
       )}
 
-
-      {/* Lista delle emoticons */}
       {showEmojis && (
         <div
           className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-10 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"

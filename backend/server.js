@@ -282,20 +282,39 @@ app.post("/report", async (req, res) => {
 });
 
 
+app.get('/am-i-registred', async (req, res) => {
+
+  const { token } = req.query;  // Prendi i parametri dalla query
+  const userResult = await pool.query(
+    `SELECT u.nickname 
+     FROM users u
+     WHERE u.token = $1`,
+    [token]
+  );
+
+  if (userResult.rows.length !== 0) {
+    return res.status(200).json({ nickname: userResult.rows[0].nickname });
+  } else {
+    return res.status(404).json({ message: "User not found"})
+  }
+
+})
+
+
 app.get('/get-user', async (req, res) => {
   const { token, filter, lat, lon } = req.query;  // Prendi i parametri dalla query
 
   //const [lat, lon] = ["44.4974349", "11.3714015"];
 
-  const FILTERS = ["Popolari", "Vicine", "Mie"];
+  const FILTERS = ["Popular", "Nearby", "My Chats"];
 
   try {
 
     if (filter && FILTERS.includes(filter)) {
       let response = {}
-      if (filter == 'Popolari') {
+      if (filter == 'Popular') {
         response.popularChats = await getPopularChats(token);
-      } else if (filter == 'Vicine' && (lat && lon && lat !== "0" && lon !== "0")) {
+      } else if (filter == 'Nearby' && (lat && lon && lat !== "0" && lon !== "0")) {
         response.nearbyChats = await getNearbyChats(token, lat, lon);
       } else { // mie
         response.userChats = await getMyChats(token);
@@ -699,7 +718,7 @@ app.get("/users", async (req, res) => {
 
   try {
     const userResult = await pool.query(
-      "SELECT id FROM users WHERE token = $1",
+      "SELECT id, latitude, longitude, geo_hidden FROM users WHERE token = $1",
       [token]
     );
     
@@ -719,7 +738,10 @@ app.get("/users", async (req, res) => {
         CASE 
           WHEN pm.user_id1 = u.id THEN pm.read_1 
           ELSE pm.read_2 
-        END AS is_read
+        END AS is_read,
+        u.latitude,
+        u.longitude,
+        u.geo_hidden 
       FROM users u
       LEFT JOIN conversations pm 
         ON ((pm.user_id1 = u.id AND pm.user_id2 = $1) 
@@ -736,12 +758,93 @@ app.get("/users", async (req, res) => {
       [userId, `%${query}%`]
     );
 
-    res.json(users.rows);
+
+    const myLat = userResult.rows[0].latitude;
+    const myLon = userResult.rows[0].longitude;
+    const iHideGeoLocation = userResult.rows[0].geo_hidden;
+
+    let usersToRetrieve = []
+
+    if (myLat != null && myLon != null && iHideGeoLocation == false) {
+      usersToRetrieve = users.rows.map((user) => {
+        if (user.latitude != null && user.longitude != null && user.geo_hidden == false) {
+          const distance = calculateDistance(myLat, myLon, user.latitude, user.longitude);
+          return { ...user, distance: Math.round(distance) }; // distanza in km, arrotondata
+        } else {
+          return { ...user, distance: null };
+        }
+      });
+    } else {
+      usersToRetrieve = users.rows.map((user) => {
+        return { ...user, distance: null};
+      })
+    }
+
+    res.json(usersToRetrieve);
   } catch (err) {
     console.error(err);
     res.status(500).send("Error searching users");
   }
 });
+
+app.put('/user/hide-location', async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).json({ error: 'Token is required' });
+  }
+
+  try {
+    const userResult = await pool.query(
+      'SELECT geo_hidden FROM users WHERE token = $1',
+      [token]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentHidden = userResult.rows[0].geo_hidden;
+
+    // Inverti il valore
+    const newHidden = !currentHidden;
+
+    // Aggiorna il database
+    await pool.query(
+      'UPDATE users SET geo_hidden = $1 WHERE token = $2',
+      [newHidden, token]
+    );
+
+    return res.status(200).json({ success: true, geo_hidden: newHidden });
+  } catch (error) {
+    console.error('Error updating geo_hidden:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.post('/user/update-location', async (req, res) => {
+  const { latitude, longitude } = req.body;
+  const { token } = req.query;
+
+  try {
+
+  const result = await pool.query(
+    `UPDATE users SET latitude = $1, longitude = $2 WHERE token = $3 RETURNING *`,
+    [latitude, longitude, token]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ error: "User not updated" });
+  }
+
+  return res.json({ message: "User location updated" });
+  } catch (err) {
+    console.error('Error updating location:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 app.get("/conversation/:conversationId", async (req, res) => {
   const { conversationId } = req.params;
@@ -751,7 +854,8 @@ app.get("/conversation/:conversationId", async (req, res) => {
       // 1️⃣ Controlliamo se il token corrisponde a un utente della conversazione
       const conversationQuery = `
           SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname,
-                 u2.id AS target_user_id, u2.nickname AS target_user_nickname
+                 u2.id AS target_user_id, u2.nickname AS target_user_nickname, u1.latitude as my_lat, u1.longitude as my_lon, 
+                 u2.latitude, u2.longitude, u1.geo_hidden as geo_hidden_u1, u2.geo_hidden as geo_hidden_u2 
           FROM conversations c
           JOIN users u1 ON u1.token = $1
           JOIN users u2 ON (c.user_id1 = u1.id AND c.user_id2 = u2.id) OR (c.user_id2 = u1.id AND c.user_id1 = u2.id)
@@ -761,7 +865,7 @@ app.get("/conversation/:conversationId", async (req, res) => {
       const conversationResult = await pool.query(conversationQuery, [token, conversationId]);
 
       if (conversationResult.rows.length === 0) {
-          return res.status(403).json({ error: "Accesso negato o conversazione non trovata." });
+          return res.status(403).json({ message: "Accesso negato o conversazione non trovata." });
       }
 
       const conversation = conversationResult.rows[0];
@@ -776,16 +880,22 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
       const messagesResult = await pool.query(messagesQuery, [conversationId]);
 
+      let distance = (conversation.my_lat != null && conversation.latitude ) ? calculateDistance(conversation.my_lat, conversation.my_lon, conversation.latitude, conversation.longitude) : null;
+
       // 3️⃣ Rispondiamo con i dati
       return res.json({
           messages: messagesResult.rows,
           auth_user: {
               id: conversation.auth_user_id,
               nickname: conversation.auth_user_nickname,
+              geo_accepted: conversation.my_lat != null,
+              geo_hidden: conversation.geo_hidden_u1
           },
           target_user: {
               id: conversation.target_user_id,
               nickname: conversation.target_user_nickname,
+              distance,
+              geo_hidden: conversation.geo_hidden_u2
           }
       });
 
@@ -821,7 +931,19 @@ app.get("/conversations/all", async (req, res) => {
              CASE
                 WHEN c.user_id1 = $1 THEN c.user_id2
                 ELSE c.user_id1
-             END AS user_id
+             END AS user_id,
+             CASE
+                WHEN c.user_id1 = $1 THEN u2.latitude
+                ELSE u1.latitude
+             END AS latitude,
+             CASE
+                WHEN c.user_id1 = $1 THEN u2.longitude
+                ELSE u1.longitude
+             END AS longitude,
+             CASE
+                WHEN c.user_id1 = $1 THEN u2.geo_hidden
+                ELSE u1.geo_hidden
+             END AS geo_hidden_2
       FROM conversations c
       LEFT JOIN LATERAL (
         SELECT message, created_at
@@ -837,10 +959,31 @@ app.get("/conversations/all", async (req, res) => {
     `;
     
     const conversationResult = await pool.query(conversationsQuery, [userId]);
+    
+    const myLat = userResult.rows[0].latitude;
+    const myLon = userResult.rows[0].longitude;
+    const iHideGeoLocation = userResult.rows[0].geo_hidden;
+
+    let conversationsToRetrieve = []
+
+    if (myLat != null && myLon != null && iHideGeoLocation == false) {
+      conversationsToRetrieve = conversationResult.rows.map((conversation) => {
+        if (conversation.latitude != null && conversation.longitude != null && conversation.geo_hidden_2 == false) {
+          const distance = calculateDistance(myLat, myLon, conversation.latitude, conversation.longitude);
+          return { ...conversation, distance: Math.round(distance) }; // distanza in km, arrotondata
+        } else {
+          return { ...conversation, distance: null };
+        }
+      });
+    } else {
+      conversationsToRetrieve = conversationResult.rows.map((conversation) => {
+        return { ...conversation, distance: null};
+      })
+    }
 
     // Ritorna le conversazioni con l'ultimo messaggio
     return res.json({
-      conversations: conversationResult.rows
+      conversations: conversationsToRetrieve
     });
   } catch (error) {
     console.error("Error fetching conversations:", error);
@@ -859,20 +1002,30 @@ app.get("/conversations", async (req, res) => {
     // Eseguo una singola query per recuperare sia l'utente autenticato, sia il target, sia la conversazione
     const result = await pool.query(
       `WITH auth_user AS (
-          SELECT id, nickname FROM users WHERE token = $1
-        ),
-        target_user AS (
-          SELECT id, nickname FROM users WHERE id = $2
-        )
-      SELECT 
-        au.id AS auth_user_id, au.nickname AS auth_user_nickname,
-        tu.id AS target_user_id, tu.nickname AS target_user_nickname,
-        pm.id AS conversation_id
-      FROM auth_user au
-      CROSS JOIN target_user tu
-      LEFT JOIN conversations pm 
-        ON ((pm.user_id1 = au.id AND pm.user_id2 = tu.id) 
-         OR (pm.user_id1 = tu.id AND pm.user_id2 = au.id))`,
+      SELECT id, nickname, geo_hidden, latitude, longitude FROM users WHERE token = $1
+    ),
+    target_user AS (
+      SELECT id, nickname, geo_hidden, latitude, longitude FROM users WHERE id = $2
+    )
+  SELECT 
+    au.id AS auth_user_id, 
+    au.nickname AS auth_user_nickname, 
+    au.geo_hidden AS geo_hidden_1, 
+    au.latitude AS my_lat, 
+    au.longitude AS my_lon,
+    
+    tu.id AS target_user_id, 
+    tu.nickname AS target_user_nickname, 
+    tu.geo_hidden AS geo_hidden_2, 
+    tu.latitude, 
+    tu.longitude,
+
+    pm.id AS conversation_id
+  FROM auth_user au
+  CROSS JOIN target_user tu
+  LEFT JOIN conversations pm 
+    ON ((pm.user_id1 = au.id AND pm.user_id2 = tu.id) 
+     OR (pm.user_id1 = tu.id AND pm.user_id2 = au.id))`,
       [token, user_id]
     );
 
@@ -886,10 +1039,12 @@ app.get("/conversations", async (req, res) => {
 
     const row = result.rows[0];
 
+    let distance = (row.my_lat != null && row.longitude && (row.geo_hidden_2 == false)) ? calculateDistance(row.my_lat, row.my_lon, row.latitude, row.longitude) : null;
+
     res.json({
       conversation_id: row.conversation_id || null,
-      auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname },
-      target_user: { id: row.target_user_id, nickname: row.target_user_nickname },
+      auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname, geo_hidden: row.geo_hidden_1, geo_accepted: row.my_lat != null },
+      target_user: { id: row.target_user_id, nickname: row.target_user_nickname, geo_hidden: row.geo_hidden_2, distance },
     });
   } catch (error) {
     console.error("Errore nel recupero della conversazione:", error);
@@ -945,11 +1100,23 @@ app.post('/create-conversation', async (req, res) => {
 app.post("/register-user", async (req, res) => {
   const { nickname } = req.body;
 
-  if (!nickname.trim()) {
-    return res.status(400).json({ message: "Nickname obbligatorio" });
-  }
+  
 
   try {
+
+    if (!isValidNickname(nickname)) {
+      return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+    }
+
+    const check = await pool.query(
+      `SELECT 1 FROM users WHERE LOWER(nickname) = LOWER($1) LIMIT 1`,
+      [nickname]
+    );
+  
+    if (check.rowCount > 0) {
+      return res.status(409).json({ message: "Nickname already used!" });
+    }
+
 
     let newToken = jwt.sign(
       { nickname: nickname },
@@ -988,8 +1155,6 @@ app.post("/update-nickname", async (req, res) => {
       return res.status(409).json({ message: "Nickname already used!" });
     }
 
-
-    // Esegui l'UPDATE sul database
     const result = await pool.query(
       `UPDATE users SET nickname = $1 WHERE token = $2 RETURNING *`,
       [nickname, token]

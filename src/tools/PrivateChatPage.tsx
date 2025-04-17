@@ -2,15 +2,21 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link, useLocation} from "react-router-dom";
 import AudioRecorderModal from './AudioRecorderModal';
 import send from '../assets/send.png';
+import warning from '../assets/warning.png';
+import lucchetto from '../assets/lucchetto.png';
 import { fetchWithPrefix } from '../utils/api';
 import { socket } from "../utils/socket"; // Importa il socket
 import { generateUniqueId } from '../utils/generateUniqueId';
 import useLongPress from './useLongPress';
+import { getPosition } from "../utils/geolocation";
 
 
 type User = {
     id: number;
     nickname: string;
+    distance: number;
+    geo_accepted: boolean;
+    geo_hidden: boolean;
 };
   
 
@@ -37,6 +43,9 @@ const PrivateChatPage = () => {
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
   const [showEmojis, setShowEmojis] = useState(false);
+  const [showGeoWarningModal, setShowGeoWarningModal] = useState<boolean>(false);
+  const [showGeoHiddenModal, setShowGeoHiddenModal] = useState<boolean>(false);
+  const [showDistanceModal, setShowDistanceModal] = useState<boolean>(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -44,12 +53,18 @@ const PrivateChatPage = () => {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
+  const [clickedIndex, setClickedIndex] = useState<number | null>(null);
   const [firstLoad, setFirstLoad] = useState(true);
   const token = localStorage.getItem('authToken');
   let alreadyJoined = false;
 
   const maxHeight = 150;
   let isScrolling = false;
+
+  const emojis = [
+    '🤪', '😠', '🤑', '🤩', '😎', '😆', '🤣', '🤗', '😋', '😝', 
+    '😏', '😈', '👻', '💀', '🤯', '🦄', '👽', '💩', '👀', '🍑'
+  ];
 
   useEffect(() => {
     if (privateMessageId) {
@@ -357,6 +372,59 @@ const onLongPress = (e: any, msg_id: number | string) => {
     }
   };
 
+  const addEmojiToMessage = (emoji: string, index: number) => {
+    inputRef.current?.focus();
+    setMessage((prevMessage) => prevMessage + emoji);
+    setClickedIndex(index);
+    setTimeout(() => {
+      setClickedIndex(null);
+    }, 300); // Tempo in ms che l'emoji rimane ingrandita
+  };
+
+  const handleHideDistance = async () => {
+    //hide and unhide distance radar of the user
+
+    try {
+      await fetchWithPrefix(`/user/hide-location?token=${token}`, {
+        method: 'PUT',
+      });
+  
+      window.location.reload(); // oppure usa navigate(location.pathname)
+    } catch (error) {
+      console.error("Failed to hide distance", error);
+    }
+  };
+
+
+  const handleRequestLocation = async () => {
+    try {
+      const position = await getPosition(); // chiama la tua funzione
+  
+      // Optional: chiudi la modale
+      setShowGeoWarningModal(false);
+  
+      // Esegui la chiamata al tuo backend per salvare latitudine/longitudine
+      await fetchWithPrefix(`/user/update-location?token=${token}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // eventuale token JWT o cookie con auth
+        },
+        body: JSON.stringify({
+          latitude: position.latitude,
+          longitude: position.longitude,
+        }),
+      });
+  
+      window.location.reload();
+
+    } catch (error: any) {
+      alert('Geolocation error or permission denied:'+error.message);
+      setShowGeoWarningModal(false);
+      // Qui potresti mostrare un messaggio tipo: "Location permission denied"
+    }
+  };
+
   const renderMessage = (msg: MessageData, index: number) => {
 
 
@@ -526,12 +594,175 @@ const onLongPress = (e: any, msg_id: number | string) => {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* HEADER */}
-      <div className="sticky top-0 z-50 bg-white shadow-md flex items-center p-4">
-        <Link to={goBackLink} className="mr-4 text-2xl">
-          ←
-        </Link>
-        <h2 className="text-lg font-semibold">{targetUser?.nickname || "Chat"}</h2>
+      <div className="sticky top-0 z-50 bg-white shadow-md flex items-center justify-between p-4">
+        {/* Parte sinistra: back link + nickname */}
+        <div className="flex items-center">
+          <Link to={goBackLink} className="mr-4 text-2xl">
+            ←
+          </Link>
+          <h2 className="text-lg font-semibold">{targetUser?.nickname || "Chat"}</h2>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          {
+          authUser?.geo_hidden === true ? (
+            <>
+              <img
+                src={lucchetto}
+                alt="Location hidden"
+                className="w-5 h-5 cursor-pointer"
+                onClick={() => setShowDistanceModal(true)}
+              />
+              <span className="text-lg text-gray-500 font-semibold">km</span>
+            </>
+          ) :
+          authUser?.geo_accepted === false ? (
+            <>
+              <img
+                src={warning}
+                alt="Location warning"
+                className="w-5 h-5 cursor-pointer"
+                onClick={() => setShowGeoWarningModal(true)}
+              />
+              <span className="text-lg text-gray-500 font-semibold">km</span>
+            </>
+          ) : targetUser?.geo_hidden === true ? (
+            <>
+              <img
+                src={lucchetto}
+                alt="Location hidden"
+                className="w-5 h-5 cursor-pointer"
+                onClick={() => setShowGeoHiddenModal(true)}
+              />
+              <span className="text-lg text-gray-500 font-semibold">km</span>
+            </>
+          ) : targetUser?.distance != null ? (
+            <button
+              onClick={() => setShowDistanceModal(true)}
+              className="text-lg text-gray-500 font-semibold hover:underline"
+            >
+              {targetUser.distance} km
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {showGeoWarningModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowGeoWarningModal(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg shadow-lg relative w-11/12 max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Location permission needed</h2>
+              <button
+                className="text-gray-500 hover:text-black text-2xl font-semibold"
+                onClick={() => setShowGeoWarningModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-gray-700 mb-4 text-left">
+              To see other users distances, you need to enable location sharing!
+            </p>
+
+            <div className="flex justify-center">
+              <button
+                onClick={handleRequestLocation}
+                className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition"
+              >
+                Enable Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showGeoHiddenModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowGeoHiddenModal(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg shadow-lg relative w-11/12 max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Location hidden</h2>
+              <button
+                className="text-gray-500 hover:text-black text-2xl font-semibold"
+                onClick={() => setShowGeoHiddenModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-gray-700 text-left">
+              This user has chosen to hide their location. Therefore, the distance cannot be displayed.
+            </p>
+          </div>
+        </div>
+      )}
+
+{showDistanceModal && (
+  <div
+    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    onClick={() => setShowDistanceModal(false)}
+  >
+    <div
+      className="bg-white p-6 rounded-lg shadow-lg relative w-11/12 max-w-md"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold text-gray-800">About distance visibility</h2>
+        <button
+          className="text-gray-500 hover:text-black text-2xl font-semibold"
+          onClick={() => setShowDistanceModal(false)}
+        >
+          ✕
+        </button>
+      </div>
+
+      {authUser?.geo_hidden ? (
+        <>
+          <p className="text-gray-700 mb-4">
+            You have chosen to hide your location from other users.
+            <br /><br />
+            If you want to make your distance visible again, you can do it below.
+          </p>
+          <div className="flex justify-center">
+            <button
+              onClick={handleHideDistance}
+              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+            >
+              🔓 Show my distance
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-gray-700 mb-4">
+            This user is approximately <strong>{targetUser?.distance} km</strong> away from you.
+            <br /><br />
+            If you prefer, you can hide your own distance from other users.
+          </p>
+          <div className="flex justify-center">
+            <button
+              onClick={handleHideDistance}
+              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+            >
+              🔒 Hide my distance
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
 
       {/* CHAT BODY */}
       <div className="flex-1 overflow-y-auto text-left flex flex-col bg-white"
@@ -555,6 +786,25 @@ const onLongPress = (e: any, msg_id: number | string) => {
         </button>
         )}
     </div>
+
+    {showEmojis && (
+        <div
+          className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-10 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
+
+        >
+       <div className="w-full flex flex-wrap md:justify-center items-center no-select">
+          {emojis.map((emoji, index) => (
+            <button
+              key={index}
+              className={`p-1 text-2xl transform transition-transform duration-300 ease-in-out ${clickedIndex === index ? 'scale-125' : 'scale-100'}`}
+              onClick={() => addEmojiToMessage(emoji, index)}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        </div>
+      )}
 
       
 

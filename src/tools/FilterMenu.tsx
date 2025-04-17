@@ -34,13 +34,13 @@ const FilterMenu: React.FC<FilterMenuProps> = ({ selectedFilter, setSelectedFilt
     setIsMenuOpen(false); // Chiude il menu dopo aver selezionato un filtro
   };
 
-  const filters = ["Popolari"];
+  const filters = ["Popular"];
   if (nearFilterToShow) {
-    filters.splice(1, 0, "Vicine");
+    filters.splice(1, 0, "Nearby");
   }
 
   if (myFilterToShow) {
-    filters.splice(1, 0, "Mie"); 
+    filters.splice(1, 0, "My Chats"); 
   }
 
 
