@@ -4,6 +4,7 @@ import Logo from '../assets/logo_without_text.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from "../utils/formatDate";
 import LoadingSpinner from "./LoadingSpinner";
+import { socket } from "../utils/socket"; // Importa il socket
 
 // Definizione del tipo per la conversazione
 interface UserConversation {
@@ -16,6 +17,8 @@ interface UserConversation {
   last_message_time: string;
   distance: number;
   geo_hidden: boolean;
+  read: boolean;
+  is_online: boolean;
 }
 
 
@@ -24,12 +27,14 @@ const PrivateMessages = () => {
   const [conversations, setConversations] = useState<UserConversation[]>([]);
   const token = localStorage.getItem('authToken');
   const [loading, setLoading] = useState<boolean>(true);
+  const [userId, setUserId] = useState<number | null>(null);
 
   // Funzione per ottenere la lista delle conversazioni recenti
   const getConversations = async () => {
     setLoading(true)
     try {
       const response_json = await fetchWithPrefix(`/conversations/all?token=${token}`);
+      setUserId(response_json.user_id)
       setConversations(response_json.conversations); // response.conversations è un array di conversazioni
       console.log(response_json.conversations)
     } catch (error) {
@@ -72,6 +77,28 @@ const PrivateMessages = () => {
     //getConversations();
   }, []);
 
+
+    useEffect(() => {
+  
+      if (!userId) {
+        return;
+      }
+  
+      if (socket.connected) {
+        console.log("Socket gia' connesso!")
+        socket.emit('join-private-messages', userId);
+      } else {
+        console.log("Socket ancora da connettere!")
+        socket.connect();
+        socket.on('connect', () => {
+          console.log("Socket connesso, ora emetto join-room");
+          socket.emit('join-private-messages', userId);
+        });
+      }
+  
+    }, [userId]);
+
+
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto bg-white">
   {/* Header */}
@@ -79,7 +106,7 @@ const PrivateMessages = () => {
     <Link to="/" className="pointer-events-auto mr-4 text-2xl">
       <img alt="BrokenChat" src={Logo} className="h-8 block" />
     </Link>
-    <h2 className="text-lg font-semibold">My Private Messages</h2>
+    <h2 className="text-lg font-semibold">Private Messages</h2>
   </div>
 
 
@@ -115,28 +142,39 @@ const PrivateMessages = () => {
       <div className="shadow-lg rounded-lg p-4" key={conversation.id}>
         <Link to={`/private-messages/${conversation.last_message ? conversation.id : `new/${conversation.user_id}`}`}>
         <div className="flex justify-between items-start w-full">
-  {/* Parte sinistra: nome + data + messaggio */}
-  <div className="text-left max-w-[100%]">
-    <strong className="text-lg block mb-1">{conversation.nickname}</strong>
-    
-    {conversation.last_message && (
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-      <p className="break-all whitespace-pre-wrap">
-        {conversation.last_message}
-      </p>
-      <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
-        <span className="mx-1">·</span>
-        {formatDate(conversation.last_message_time)}
-      </span>
-    </div>
-    )}
-  </div>
+          <div className="text-left max-w-[100%]">
+            <strong className="text-lg block mb-1">
+              {conversation.nickname}
+              {(conversation.read == false) && (
+                <span className="ml-2 text-xs text-white bg-blue-500 px-2 py-1 rounded-full">
+                  New
+                </span>
+              )}
+            </strong>
 
-  {/* Parte destra: distanza */}
-  {(conversation.distance!= null) && (<div className="text-right text-gray-500 flex flex-col items-end min-w-[50px]">
-    <span className="text-xl1 font-semibold">{`${conversation.distance} km `}</span>
-  </div>)}
-</div>
+            {(conversation.is_online == true) && (<div className="text-xs font-semibold inline-block text-blue-500 mb-2">
+              Online
+            </div>)}
+            
+            {conversation.last_message && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <p className="break-all whitespace-pre-wrap">
+              {conversation.last_message.length > 100
+                    ? `${conversation.last_message.slice(0, 100)}...`
+                    : conversation.last_message}
+              </p>
+              <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+                <span className="mx-1">·</span>
+                {formatDate(conversation.last_message_time)}
+              </span>
+            </div>
+            )}
+          </div>
+
+          {(conversation.distance!= null) && (<div className="text-right text-gray-500 flex flex-col items-end min-w-[50px]">
+            <span className="text-xl1 font-semibold">{`${conversation.distance} km `}</span>
+          </div>)}
+      </div>
 
         </Link>
       </div>

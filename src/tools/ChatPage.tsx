@@ -90,6 +90,7 @@ function ChatPage() {
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
+  const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
 
   const ffmpeg = new FFmpeg();
   const maxHeight = 150;
@@ -166,6 +167,8 @@ function ChatPage() {
           setIsChatLocked(false);
         }
 
+        setUnreadPrivateMessagesCount(response_json.unread_private_messages_count)
+
         setNickname(response_json.chat.nickname);
         //setDescription(response_json.chat.description)
         setUserId(response_json.chat.user_id);
@@ -212,12 +215,22 @@ function ChatPage() {
 
         socket.off('banned');
 
-        socket.on('banned', () => {
-          socket.off('join-room');
-          socket.off('broadcast_messages');
-          socket.off('alert_message');
-          setIsBanned(true);
-          setIsChatLocked(true);
+        socket.on('banned', ({ msg, chat_id }) => {
+          if (chatId === chat_id ) {
+            socket.off('join-room');
+            socket.off('broadcast_messages');
+            socket.off('alert_message');
+            setIsBanned(true);
+            setIsChatLocked(true);
+          }
+        });
+
+        socket.off('new_private_messages');
+
+        socket.on('new_private_messages', ({ unread_private_messages_count }) => {
+          if (unread_private_messages_count && unread_private_messages_count > 0) {
+            setUnreadPrivateMessagesCount(unread_private_messages_count);
+          }
         });
 
         socket.off('alert_message');
@@ -291,6 +304,7 @@ function ChatPage() {
       //socket.disconnect()
       socket.emit("leave-room", chatId);
       socket.off('banned');
+      socket.off('new_private_messages');
       socket.off('broadcast_messages');
       socket.off('join-room');
       socket.off('alert_message');
@@ -855,7 +869,7 @@ function ChatPage() {
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
       {(isChatLocked == false) && (<div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
-        <Header AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => setIsBanModalOpen(true)} />
+        <Header numPvtMsgToRead={unreadPrivateMessagesCount} AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => setIsBanModalOpen(true)} />
       </div>) }
 
       {showInfoChatModal && (
@@ -1047,7 +1061,12 @@ function ChatPage() {
     onScroll={chatContainerScrollHandler}
     onTouchMove={handleTouchMove}
   >
-    <div style={{ marginTop: '500px', marginBottom: '4px'}}>
+    <div style={{ marginBottom: '4px'}}>
+      <div className="bg-blue-300 text-white p-6 rounded-b-lg">
+        <h2 className="text-2xl font-semibold mb-2">{chatData?.name}</h2>
+        <p className="text-lg mb-4">{chatData?.description}</p>
+        <p className="text-sm italic">Only the last 100 messages are saved in the chat.</p>
+      </div>
       {messages.map((msg, index) => (
         renderMessage(msg, index)
       ))}
@@ -1059,7 +1078,7 @@ function ChatPage() {
         className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
         onClick={scrollToBottom}
       >
-        ⬇️ Nuovi messaggi
+        ⬇️ New messages
       </button>
     )}
   </div>

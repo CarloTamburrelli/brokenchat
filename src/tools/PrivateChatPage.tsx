@@ -9,6 +9,8 @@ import { socket } from "../utils/socket"; // Importa il socket
 import { generateUniqueId } from '../utils/generateUniqueId';
 import useLongPress from './useLongPress';
 import { getPosition } from "../utils/geolocation";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 
 type User = {
@@ -53,10 +55,13 @@ const PrivateChatPage = () => {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
+  const [isLoadingConverting, setIsLoadingConverting] = useState(false);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(false);
   const [firstLoad, setFirstLoad] = useState(true);
   const token = localStorage.getItem('authToken');
   let alreadyJoined = false;
+  const ffmpeg = new FFmpeg();
 
   const maxHeight = 150;
   let isScrolling = false;
@@ -96,13 +101,13 @@ const PrivateChatPage = () => {
         }
     }
 
-    console.log("sono in ascolto di broadcast_private_messages")
+    //console.log("sono in ascolto di broadcast_private_messages")
 
     socket.off('broadcast_private_messages');
 
     socket.on('broadcast_private_messages', (newMessage) => {
 
-        console.log("recupero messaggio privato", newMessage)
+        //console.log("recupero messaggio privato", newMessage)
 
         setMessages((prevMessages) => [
         ...prevMessages,
@@ -112,10 +117,14 @@ const PrivateChatPage = () => {
             message: newMessage.text,
             alert_message: false,
             user_id: newMessage.user_id,
-            audio: newMessage.audio || null, // Salviamo l'audio se presente
+            audio: newMessage.audio || null, 
             quoted_msg: newMessage.quoted_msg || null,
         },
         ]);
+
+        if (newMessage.is_online != null) {
+          setIsOnline(newMessage.is_online)
+        }
     });
 
 
@@ -130,14 +139,12 @@ const PrivateChatPage = () => {
 
 
 useEffect(() => {
-    console.log("useEffect...", messages)
 
     if (!chatContainerRef.current) return;
 
     if (messages && messages.length == 0) return;
 
     if (firstLoad) {
-        console.log("scrollo in basso...", messages)
       // Se è il primo caricamento, scrolla sempre in fondo
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       setFirstLoad(false); // Dopo il primo scroll, disattiva il comportamento
@@ -147,9 +154,7 @@ useEffect(() => {
 
       const offset = 150
 
-
-      console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
-
+      //console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
 
       if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -175,7 +180,6 @@ const onLongPress = (e: any, msg_id: number | string) => {
   };
 
 
-
   const checkExistingConversation = async (userId: number) => {
     try {
         console.log("inizio...");
@@ -189,6 +193,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
         } else {
             setAuthUser(response_json.auth_user)
             setTargetUser(response_json.target_user)
+
+            if (response_json.target_user.is_online) {
+              setIsOnline(response_json.target_user.is_online)
+            }
         }
     } catch (error) {
       console.error("Errore nel controllo conversazione:", error);
@@ -212,19 +220,89 @@ const onLongPress = (e: any, msg_id: number | string) => {
       return null;
     }
   };
+
+  const sendAudioMessage = (base64Audio: string) => {
+
+    const newMessage: { 
+      user_id: number | null; 
+      nickname: string; 
+      text: string; 
+      id: string; 
+      audio: string;
+      alert_message: boolean;
+      quoted_msg?: any; // Permette quoted_msg opzionale
+    } = {
+      id: generateUniqueId(),
+      user_id: authUser!.id,
+      nickname: authUser!.nickname,
+      text: '', // Nessun testo perché è un messaggio audio
+      audio: base64Audio, // L'audio codificato in Base64
+      alert_message: false,
+    };
+
+    if (quotedMessage != null) {
+      newMessage.quoted_msg = quotedMessage;
+      setQuotedMessage(null);
+    }
+
+
+    socket.emit('private-message', conversationId, newMessage);
+  };
   
 
-  const handleAudioRecorded = async (audioBlob: Blob) => {
+   const handleAudioRecorded = async (audioBlob: Blob) => {
+      try {
+        setIsLoadingConverting(true);
+        await ffmpeg.load();  // Carica FFmpeg
+  
+        //const audioFile = new File([audioBlob], 'audio.mp4', { type: 'audio/mp4' });
+        const audioFilePath = '/audio.mp4';
+  
+        await ffmpeg.writeFile(audioFilePath, await fetchFile(audioBlob));
+        
+        // Esegui la conversione a MP3
+        await ffmpeg.exec(['-i', audioFilePath, 'output.mp3']);
+  
+        const mp3Data = await ffmpeg.readFile('output.mp3')
+  
+        // Converti in Base64
+        const mp3Blob = new Blob([mp3Data], { type: 'audio/mp3' });
+        const base64Audio = await blobToBase64(mp3Blob);
+        setIsLoadingConverting(false);  // Rimuovi il loading indicator
+        sendAudioMessage(base64Audio);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 500);
+  
+      } catch(error: any) {
+        console.log("errore: ", error);
+      }
+  
+  
+    };
 
-  }
+    const blobToBase64 = (blob: Blob) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    };
 
   const fetchMessages = async (conversationId: number) => {
     try {
-        const response_json = await fetchWithPrefix(`/conversation/${conversationId}?token=${token}`);
+        const response_json = await fetchWithPrefix(`/conversation/${conversationId}?token=${token}`);        
         setMessages(response_json.messages);
         setAuthUser(response_json.auth_user)
         setTargetUser(response_json.target_user)
         setConversationId(conversationId);
+        if (response_json.target_user.is_online) {
+          setIsOnline(response_json.target_user.is_online)
+        }
     } catch (error) {
       console.error("Errore nel caricamento messaggi:", error);
     }
@@ -265,7 +343,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                reporter_id: userId,
+                reporter_id: authUser!.id,
                 reported_user_id: msg.user_id,
                 conversation_id: conversationId,
                 message: msg.message, 
@@ -290,12 +368,13 @@ const onLongPress = (e: any, msg_id: number | string) => {
         if (!chatContainerRef.current) return; // Verifica se il contenitore del chat esiste prima di controllare le proprie dimensionichatContainerRef.current)
         inputRef.current?.focus();
         inputRef!.current!.style.height = "auto"; // Resetta altezza per calcolare bene
-        const newMessage: { 
+        const newMessage: {
           user_id: number | null; 
           nickname: string; 
           text: string; 
           id: string; 
           quoted_msg?: any; // Permette quoted_msg opzionale
+          target_id?: number;
         } = { 
           user_id: authUser!.id, 
           nickname: authUser!.nickname, 
@@ -306,6 +385,8 @@ const onLongPress = (e: any, msg_id: number | string) => {
         if (quotedMessage != null) {
           newMessage.quoted_msg = quotedMessage;
         }
+
+        newMessage.target_id = targetUser?.id;
 
         if (!conversationId) {
             let conversation_id = await createConversation();
@@ -580,7 +661,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
               </span>
             )}
 
-</div>
+        </div>
           </div>
         </div>
       );
@@ -600,7 +681,14 @@ const onLongPress = (e: any, msg_id: number | string) => {
           <Link to={goBackLink} className="mr-4 text-2xl">
             ←
           </Link>
+          <div className="flex flex-col items-start">
           <h2 className="text-lg font-semibold">{targetUser?.nickname || "Chat"}</h2>
+          {(isOnline == true) && (
+            <span className="text-sm font-semibold text-blue-500">
+              Online
+            </span>
+          )}
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -770,7 +858,14 @@ const onLongPress = (e: any, msg_id: number | string) => {
         onScroll={chatContainerScrollHandler}
         onTouchMove={handleTouchMove}
     >
-        <div style={{ marginTop: '500px',  marginBottom: '4px' }}>
+        <div style={{ marginBottom: '4px' }}>
+        <div className="bg-blue-300 text-white p-6 rounded-b-lg">
+          <h2 className="text-lg font-semibold mb-2">
+            Private chat with <span className="text-2xl">{targetUser?.nickname}</span>
+          </h2>
+          <p className="text-sm italic">Only the last 50 messages are saved in the chat.</p>
+        </div>
+
         {messages.map((msg, index) => (
             renderMessage(msg, index)
         ))}
@@ -782,10 +877,16 @@ const onLongPress = (e: any, msg_id: number | string) => {
             className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
             onClick={scrollToBottom}
         >
-            ⬇️ Nuovi messaggi
+            ⬇️ New messages
         </button>
         )}
     </div>
+
+    {showToastMessage && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
+          {showToastMessage}
+        </div>
+      )}
 
     {showEmojis && (
         <div

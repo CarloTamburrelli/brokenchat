@@ -17,14 +17,14 @@ type NavItem = {
 
 
 
-export default function Header({headerName='', usersList=[], editChat = () => {}, banUser = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}, AmIAdmin=0}: {headerName: string, usersList?: string[], editChat: () => void, banUser: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void, AmIAdmin: number}) {
+export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], editChat = () => {}, banUser = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}, AmIAdmin=0}: {numPvtMsgToRead: number, headerName: string, usersList?: string[], editChat: () => void, banUser: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void, AmIAdmin: number}) {
 
   let adminNavigation: NavItem[] = [];
 
   if (AmIAdmin == 1) {
     adminNavigation = [
       { name: 'Edit Chat', href: '#', current: true, onClick: editChat, icon: edit },
-      { name: 'List Ban Users', href: '#', current: true, onClick: banUser, icon: ban_user },
+      { name: 'Banned users', href: '#', current: true, onClick: banUser, icon: ban_user },
     ]
   }
 
@@ -68,9 +68,9 @@ export default function Header({headerName='', usersList=[], editChat = () => {}
         <Link to="/private-messages" className="pointer-events-auto">
           <div className="relative cursor-pointer flex items-center space-x-1 px-2 py-1">
             <img src={my_messages} alt="Private Messages" className="w-5 h-5" />
-            <span className="absolute top-0 right-0 block w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              {3}
-            </span>
+            {(numPvtMsgToRead > 0) && (<span className="absolute top-0 right-0 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+              {numPvtMsgToRead}
+            </span>)}
           </div>
         </Link>
 

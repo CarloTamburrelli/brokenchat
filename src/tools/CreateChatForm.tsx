@@ -180,6 +180,7 @@ function CreateChatForm() {
           />
 
           <textarea
+            maxLength={255}
             placeholder="Chat Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}

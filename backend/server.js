@@ -255,9 +255,9 @@ const getNearbyChats = async (token, lat, lon) => {
 
 app.post("/report", async (req, res) => {
   try {
-    const { reporter_id, reported_user_id, chat_id, message, token } = req.body;
+    const { reporter_id, reported_user_id, chat_id, conversation_id, message, token } = req.body;
 
-    if (!reporter_id || !reported_user_id || !chat_id || !message) {
+    if (!reporter_id || !reported_user_id || !message) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -270,10 +270,21 @@ app.post("/report", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized: Invalid user or token" });
     }
 
-    await pool.query(
+    if (chat_id) {
+      await pool.query(
         "INSERT INTO reports (reporter_id, reported_user_id, chat_id, message) VALUES ($1, $2, $3, $4)",
         [reporter_id, reported_user_id, chat_id, message]
-    );
+      );
+    } else if (conversation_id) {
+      await pool.query(
+        "INSERT INTO reports (reporter_id, reported_user_id, conversation_id, message) VALUES ($1, $2, $3, $4)",
+        [reporter_id, reported_user_id, conversation_id, message]
+      );
+    } else {
+      return res.status(401).json({ message: "Chat id or conversation id no set" });
+    }
+
+    
     res.json({ message: "Report successfully submitted" });
   } catch (error) {
       console.error("Error reporting message:", error);
@@ -328,7 +339,7 @@ app.get('/get-user', async (req, res) => {
 
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
-      `SELECT u.nickname 
+      `SELECT u.nickname, u.id
        FROM users u
        WHERE u.token = $1`,
       [token]
@@ -341,6 +352,7 @@ app.get('/get-user', async (req, res) => {
     // Se l'utente è registrato
     if (userResult.rows.length !== 0) {
       nickname = userResult.rows[0].nickname;  // Ottieni il nickname dell'utente
+      userId = userResult.rows[0].id;  // Ottieni il nickname dell'utente
 
       // Se l'utente fornisce latitudine e longitudine, aggiorna la sua posizione e ottieni le chat vicine
       if (lat && lon && lat !== "0" && lon !== "0") {
@@ -355,18 +367,25 @@ app.get('/get-user', async (req, res) => {
         popularChats = await getPopularChats(token); // Funzione che restituisce chat popolari
       }
 
-      /*console.log({
-        nickname,
-        userChats,
-        nearbyChats,
-        popularChats
-      })*/
+      const unreadResult = await pool.query(
+        `
+        SELECT COUNT(*) AS unread_count
+        FROM conversations
+        WHERE 
+          (user_id1 = $1 AND read_1 = false)
+          OR
+          (user_id2 = $1 AND read_2 = false)
+        `,
+        [userId]
+      );
 
 
       return res.status(200).json({
+        userId,
         nickname,
         nearbyChats,
-        popularChats
+        popularChats,
+        unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
       });
 
     } else {
@@ -610,7 +629,6 @@ app.get('/chat/:chatId', async (req, res) => {
 
       banUsersList = banUsersListTmp.rows.map(row => Object.values(row)[0]);
 
-      console.log("finito", banUsersList)
     }
 
     // Se la chat è privata e l'utente non è già dentro, bloccalo
@@ -629,10 +647,24 @@ app.get('/chat/:chatId', async (req, res) => {
       );
     }
 
+
+    const unreadResult = await pool.query(
+      `
+      SELECT COUNT(*) AS unread_count
+      FROM conversations
+      WHERE 
+        (user_id1 = $1 AND read_1 = false)
+        OR
+        (user_id2 = $1 AND read_2 = false)
+      `,
+      [chatData.user_id]
+    );
+
     res.status(200).json({
       chat: chatData,
       messages: messagesResult.rows,
       ban_user_list: banUsersList,
+      unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
     });
   } catch (err) {
     console.error('Errore nel recuperare i dati della chat:', err);
@@ -697,9 +729,9 @@ app.put('/ban/:chatId/:userId', async (req, res) => {
 
     await redisClient.srem(`online_users:${chatId}`, `${result.rows[0].target_name}####${userId}`);
 
-    io.to(`user:${chatId}_${userId}`).emit('banned', {
-      message: "You have been banned from the chat",
-      chatId,
+    io.to(`user:${userId}`).emit('banned', {
+      msg: "You have been banned from the chat",
+      chat_id: chatId,
     })
 
     const users = await redisClient.smembers(`online_users:${chatId}`);
@@ -741,7 +773,11 @@ app.get("/users", async (req, res) => {
         END AS is_read,
         u.latitude,
         u.longitude,
-        u.geo_hidden 
+        u.geo_hidden,
+        CASE
+          WHEN pm.user_id1 = u.id THEN pm.read_2
+          ELSE pm.read_1
+        END AS read  
       FROM users u
       LEFT JOIN conversations pm 
         ON ((pm.user_id1 = u.id AND pm.user_id2 = $1) 
@@ -758,7 +794,6 @@ app.get("/users", async (req, res) => {
       [userId, `%${query}%`]
     );
 
-
     const myLat = userResult.rows[0].latitude;
     const myLon = userResult.rows[0].longitude;
     const iHideGeoLocation = userResult.rows[0].geo_hidden;
@@ -766,18 +801,21 @@ app.get("/users", async (req, res) => {
     let usersToRetrieve = []
 
     if (myLat != null && myLon != null && iHideGeoLocation == false) {
-      usersToRetrieve = users.rows.map((user) => {
+      usersToRetrieve = await Promise.all(users.rows.map(async (user) => {
+
+        user.is_online = await redisClient.sismember('online', user.user_id)
         if (user.latitude != null && user.longitude != null && user.geo_hidden == false) {
           const distance = calculateDistance(myLat, myLon, user.latitude, user.longitude);
           return { ...user, distance: Math.round(distance) }; // distanza in km, arrotondata
         } else {
           return { ...user, distance: null };
         }
-      });
+      }));
     } else {
-      usersToRetrieve = users.rows.map((user) => {
+      usersToRetrieve = await Promise.all(users.rows.map(async (user) => {
+        user.is_online = await redisClient.sismember('online', user.user_id)
         return { ...user, distance: null};
-      })
+      }))
     }
 
     res.json(usersToRetrieve);
@@ -851,7 +889,6 @@ app.get("/conversation/:conversationId", async (req, res) => {
   const { token } = req.query;
 
   try {
-      // 1️⃣ Controlliamo se il token corrisponde a un utente della conversazione
       const conversationQuery = `
           SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname,
                  u2.id AS target_user_id, u2.nickname AS target_user_nickname, u1.latitude as my_lat, u1.longitude as my_lon, 
@@ -870,7 +907,6 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
       const conversation = conversationResult.rows[0];
 
-      // 2️⃣ Recuperiamo i messaggi della conversazione
       const messagesQuery = `SELECT m.id, u.nickname, m.message , m.user_id 
        FROM messages as m
        JOIN users as u ON u.id = m.user_id 
@@ -880,9 +916,25 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
       const messagesResult = await pool.query(messagesQuery, [conversationId]);
 
+      await pool.query(
+        `UPDATE conversations
+         SET 
+           read_1 = CASE 
+             WHEN user_id1 = $1 THEN true 
+             ELSE read_1 
+           END,
+           read_2 = CASE 
+             WHEN user_id2 = $1 THEN true 
+             ELSE read_2 
+           END
+         WHERE id = $2`,
+        [conversation.auth_user_id, conversationId]
+      );
+
       let distance = (conversation.my_lat != null && conversation.latitude ) ? calculateDistance(conversation.my_lat, conversation.my_lon, conversation.latitude, conversation.longitude) : null;
 
-      // 3️⃣ Rispondiamo con i dati
+      let target_is_online = await redisClient.sismember('online', conversation.target_user_id)
+      
       return res.json({
           messages: messagesResult.rows,
           auth_user: {
@@ -895,7 +947,8 @@ app.get("/conversation/:conversationId", async (req, res) => {
               id: conversation.target_user_id,
               nickname: conversation.target_user_nickname,
               distance,
-              geo_hidden: conversation.geo_hidden_u2
+              geo_hidden: conversation.geo_hidden_u2,
+              is_online: target_is_online
           }
       });
 
@@ -943,7 +996,11 @@ app.get("/conversations/all", async (req, res) => {
              CASE
                 WHEN c.user_id1 = $1 THEN u2.geo_hidden
                 ELSE u1.geo_hidden
-             END AS geo_hidden_2
+             END AS geo_hidden_2,
+             CASE
+                WHEN c.user_id1 = $1 THEN c.read_1
+                ELSE c.read_2
+             END AS read 
       FROM conversations c
       LEFT JOIN LATERAL (
         SELECT message, created_at
@@ -967,23 +1024,28 @@ app.get("/conversations/all", async (req, res) => {
     let conversationsToRetrieve = []
 
     if (myLat != null && myLon != null && iHideGeoLocation == false) {
-      conversationsToRetrieve = conversationResult.rows.map((conversation) => {
+      conversationsToRetrieve = await Promise.all(conversationResult.rows.map(async (conversation) => {
+
+        conversation.is_online = await redisClient.sismember('online', conversation.user_id)
+
         if (conversation.latitude != null && conversation.longitude != null && conversation.geo_hidden_2 == false) {
           const distance = calculateDistance(myLat, myLon, conversation.latitude, conversation.longitude);
           return { ...conversation, distance: Math.round(distance) }; // distanza in km, arrotondata
         } else {
           return { ...conversation, distance: null };
         }
-      });
+      }));
     } else {
-      conversationsToRetrieve = conversationResult.rows.map((conversation) => {
+      conversationsToRetrieve = await Promise.all(conversationResult.rows.map(async (conversation) => {
+        conversation.is_online = await redisClient.sismember('online', conversation.user_id)
         return { ...conversation, distance: null};
-      })
+      }))
     }
 
     // Ritorna le conversazioni con l'ultimo messaggio
     return res.json({
-      conversations: conversationsToRetrieve
+      conversations: conversationsToRetrieve,
+      user_id: userId
     });
   } catch (error) {
     console.error("Error fetching conversations:", error);
@@ -1041,10 +1103,13 @@ app.get("/conversations", async (req, res) => {
 
     let distance = (row.my_lat != null && row.longitude && (row.geo_hidden_2 == false)) ? calculateDistance(row.my_lat, row.my_lon, row.latitude, row.longitude) : null;
 
+    let target_is_online = await redisClient.sismember('online', row.target_user_id)
+      
+
     res.json({
       conversation_id: row.conversation_id || null,
       auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname, geo_hidden: row.geo_hidden_1, geo_accepted: row.my_lat != null },
-      target_user: { id: row.target_user_id, nickname: row.target_user_nickname, geo_hidden: row.geo_hidden_2, distance },
+      target_user: { id: row.target_user_id, nickname: row.target_user_nickname, geo_hidden: row.geo_hidden_2, distance, is_online: target_is_online },
     });
   } catch (error) {
     console.error("Errore nel recupero della conversazione:", error);
@@ -1175,6 +1240,15 @@ app.post("/update-nickname", async (req, res) => {
 io.on('connection', (socket) => {
   // console.log('Un utente si è connesso');
 
+  socket.on('join-home', async (user_id) => {
+    socket.join(`user:${user_id}`);
+    await redisClient.sadd('online', user_id);
+  });
+
+  socket.on('join-private-messages', async (user_id) => {
+    await redisClient.sadd('online', user_id);
+  });
+
   // Ascolta per l'evento "join-room" (entrata nella chat)
   socket.on('join-room', async (chatId, nickname, user_id) => {
 
@@ -1182,8 +1256,9 @@ io.on('connection', (socket) => {
     socket.chatId = chatId;
     socket.nickname = nickname;
     socket.join(chatId);
-    socket.join(`user:${chatId}_${user_id}`); //for ban
+    socket.join(`user:${user_id}`);
     await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
+    await redisClient.sadd('online', user_id);
     const users = await redisClient.smembers(`online_users:${chatId}`);
     io.to(chatId).emit('alert_message', { message: "", users });
     
@@ -1196,6 +1271,7 @@ io.on('connection', (socket) => {
       const users = await redisClient.smembers(`online_users:${chatId}`);
       io.to(chatId).emit('alert_message', { message: "", users });
       socket.leave(socket.chatId);
+      socket.leave(`user:${socket.userId}`)
       socket.chatId = null; // Rimuoviamo l'ID della chat attuale
     }
   });
@@ -1259,55 +1335,93 @@ io.on('connection', (socket) => {
 
     console.log("sono qui... e faccio accesso alla chat privata", conversation_id, user)
 
-    socket.user_id = user.id;
-    socket.conversation_id = conversation_id;
+    socket.userId = user.id;
+    socket.conversationId = conversation_id;
     socket.nickname = user.nickname;
     socket.join(conversation_id);
-
+    await redisClient.sadd('online', user.id);
+    await redisClient.sadd(`private_room:${conversation_id}`, user.id);
 
     if (callback) {
       callback({ success: true, message: 'Room joined successfully' });
     }
 
-    //await redisClient.sadd(`online_users:${chatId}`, `${nickname}####${user_id}`);
     //const users = await redisClient.smembers(`online_users:${chatId}`);
   });
 
   socket.on('leave-private-room', async (conversation_id) => {
-    console.log("Un utente si è disconnesso dalla chat privata",conversation_id, socket.nickname, socket.user_id);
-    if (socket.conversation_id && socket.nickname) {
-      //await redisClient.srem(`online_users:${chatId}`, `${socket.nickname}####${socket.userId}`);
+    console.log("Un utente si è disconnesso dalla chat privata",conversation_id, socket.nickname, socket.userId);
+    if (socket.conversationId && socket.nickname) {
+      await redisClient.srem(`private_room:${conversation_id}`, socket.userId);
       //const users = await redisClient.smembers(`online_users:${chatId}`);
-      socket.leave(socket.conversation_id);
-      socket.conversation_id = null; // Rimuoviamo l'ID della chat attuale
+      socket.leave(socket.conversationId);
+      socket.conversationId = null; // Rimuoviamo l'ID della chat attuale
     }
   });
 
   socket.on('private-message', async (chatId, newMessage) => {
 
-    console.log("private message! ", socket.conversation_id)
+    console.log("private message! ", socket.conversationId)
 
-    if (!socket.conversation_id) {
+    if (!socket.conversationId) {
       return;
     }
 
-    // Invia il messaggio a tutti gli utenti della stanza
     try {
-      // Salva il messaggio nel database
       const is_a_multimedia_message = newMessage.audio ? true : false;
 
       await pool.query(
         'INSERT INTO messages (conversation_id, user_id, message) VALUES ($1, $2, $3)',
-        [socket.conversation_id, socket.user_id, !is_a_multimedia_message ? newMessage.text : '']
+        [socket.conversationId, socket.userId, !is_a_multimedia_message ? newMessage.text : '']
       );
+
+      const isMember = await redisClient.sismember(`private_room:${socket.conversationId}`, newMessage.target_id);
+
+      if (!isMember) {
+        // il messaggio e' nuovo solo se l'altro utente non si trova nella chat
+        await pool.query(
+          `UPDATE conversations
+          SET 
+            read_1 = CASE 
+              WHEN user_id1 = $1 THEN true
+              ELSE false
+            END,
+            read_2 = CASE 
+              WHEN user_id2 = $1 THEN true
+              ELSE false
+            END
+          WHERE id = $2`,
+          [socket.userId, socket.conversationId]
+        );
+
+        
+        const unreadResult = await pool.query(
+          `
+          SELECT COUNT(*) AS unread_count
+          FROM conversations
+          WHERE 
+            (user_id1 = $1 AND read_1 = false)
+            OR
+            (user_id2 = $1 AND read_2 = false)
+          `,
+          [newMessage.target_id]
+        );
+        
+        io.to(`user:${newMessage.target_id}`).emit('new_private_messages', {
+          unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
+        })
+
+      }
+
+      newMessage.is_online = await redisClient.sismember('online', newMessage.target_id);
+
       
-      // Emetti il messaggio alla chat
-      io.to(socket.conversation_id).emit('broadcast_private_messages', newMessage);
+      io.to(socket.conversationId).emit('broadcast_private_messages', newMessage);
   
       // Controlla il numero di messaggi nella chat
       const result = await pool.query(
         'SELECT COUNT(*) FROM messages WHERE conversation_id = $1',
-        [socket.conversation_id]
+        [socket.conversationId]
       );
       const messageCount = parseInt(result.rows[0].count, 10);
   
@@ -1320,17 +1434,29 @@ io.on('connection', (socket) => {
             WHERE conversation_id = $1
             ORDER BY id ASC
             LIMIT 1
-          )`, [socket.conversation_id]);
-        console.log(`Il primo messaggio è stato eliminato dalla conversazione ${socket.conversation_id}`);
+          )`, [socket.conversationId]);
+        console.log(`Il primo messaggio è stato eliminato dalla conversazione ${socket.conversationId}`);
       }
   
-      console.log(`Messaggio inviato alla conversazione ${socket.conversation_id}: ${newMessage}`);
+      console.log(`Messaggio inviato alla conversazione ${socket.conversationId}: ${newMessage}`);
     } catch (err) {
       console.error('Errore nel salvataggio del messaggio:', err);
     }
   });
 
   socket.on("disconnect", async (reason) => {
+
+
+    console.log("MI SONO DISCONNESSO???", reason, "user id", socket.userId, socket.conversationId);
+
+    if (socket.conversationId && socket.userId) {
+      await redisClient.srem(`private_room:${socket.conversationId}`, socket.userId);
+    }
+
+    if (socket.userId) {
+      await redisClient.srem('online', socket.userId);
+    }
+
 
     if (!socket.chatId || !socket.nickname || !socket.userId) {
       console.log("Dati utente mancanti, impossibile rimuovere da Redis.");
@@ -1341,6 +1467,7 @@ io.on('connection', (socket) => {
     const userString = `${socket.nickname}####${socket.userId}`;
 
     try {
+        
         const removed = await redisClient.srem(redisKey, userString);
         if (removed) {
             console.log(`Utente ${userString} rimosso da ${redisKey}`);

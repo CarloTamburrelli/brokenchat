@@ -10,6 +10,7 @@ import LocationRequestButton from "../tools/LocationRequestButton";
 import LoadingSpinner from '../tools/LoadingSpinner';
 import create_chat from '../assets/create_chat.png';
 import { welcomeMessages } from '../utils/consts';
+import { socket } from "../utils/socket"; // Importa il socket
 
 type Chatroom = {
   id: string;
@@ -27,6 +28,7 @@ type GroupedChats = Record<number, Chatroom[]>;
 export default function Home() {
 
   const [nickname, setNickName] = useState<string>("");
+  const [userId, setUserId] = useState<number | null>(null);
   const [nearbyChats, setNearbyChats] = useState<GroupedChats>({});  // Oggetto vuoto per nearbyChats
   const [popularChats, setPopularChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
   const [myChats, setMyChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
@@ -40,6 +42,7 @@ export default function Home() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [welcomeStr, setWelcomeStr] = useState<string>('');
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
 
   const handleChangeNickname = async () => {
     try {
@@ -94,6 +97,14 @@ export default function Home() {
         setNickName(response.nickname)
       }
 
+      if (response.userId !== null) {
+        setUserId(response.userId)
+      }
+
+      if ('unread_private_messages_count' in response) {
+        setUnreadPrivateMessagesCount(response.unread_private_messages_count)
+      }
+
       if (response.nearbyChats && Object.keys(response.nearbyChats).length !== 0) {
         setSelectedFilter("Nearby")
         setNearbyChats(response.nearbyChats)
@@ -101,6 +112,15 @@ export default function Home() {
         setSelectedFilter("Popular")
         setPopularChats(response.popularChats)
       }
+
+
+      socket.off('new_private_messages');
+
+      socket.on('new_private_messages', ({ unread_private_messages_count }) => {
+        if (unread_private_messages_count && unread_private_messages_count > 0) {
+          setUnreadPrivateMessagesCount(unread_private_messages_count);
+        }
+      });
 
       setLoading(false);
 
@@ -191,6 +211,26 @@ export default function Home() {
     
   }, []);
 
+  useEffect(() => {
+
+    if (!userId) {
+      return;
+    }
+
+    if (socket.connected) {
+      console.log("Socket gia' connesso!")
+      socket.emit('join-home', userId);
+    } else {
+      console.log("Socket ancora da connettere!")
+      socket.connect();
+      socket.on('connect', () => {
+        console.log("Socket connesso, ora emetto join-room");
+        socket.emit('join-home', userId);
+      });
+    }
+
+  }, [userId]);
+
 
   interface HeaderBrokenChatProps {
     alreadyJoined: string | null;  // Accettiamo il nickname come variabile
@@ -205,8 +245,13 @@ export default function Home() {
   {/* Icona Messaggi Privati */}
   {alreadyJoined && alreadyJoined !== "" && (
   <div className="md:flex flex-1 justify-start">
-    <Link to="/private-messages">
-      <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
+    <Link to="/private-messages" className="pointer-events-auto">
+      <div className="relative w-8 h-8">
+        <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
+        {unreadPrivateMessagesCount > 0 && (<span className="absolute -top-1 -right-3 w-5 h-5 bg-blue-500 text-white text-[11px] rounded-full flex items-center justify-center">
+          {unreadPrivateMessagesCount}
+        </span>)}
+      </div>
     </Link>
   </div>
   )}
