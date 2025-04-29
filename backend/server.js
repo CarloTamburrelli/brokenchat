@@ -64,7 +64,7 @@ async function sendNotificationToUser(userId, nickname, message, conversation_id
       title: nickname, // Titolo della notifica
       body: message,   // Corpo della notifica
       data: {
-        url: `https://rich-bananas-sell.loca.lt/private-messages/${conversation_id}`
+        url: `https://broken.chat/private-messages/${conversation_id}`
       }
     });
 

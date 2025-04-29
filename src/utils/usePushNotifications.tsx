@@ -28,7 +28,7 @@ export default function usePushNotifications(userId: number) {
         }
 
         // Se non ha una subscription, registriamo una nuova
-        const registration = await navigator.serviceWorker.register('/service-worker-v2.js');
+        const registration = await navigator.serviceWorker.register('/service-worker-v3.js');
         console.log('Service Worker registered:', registration);
 
         const permission = await Notification.requestPermission();

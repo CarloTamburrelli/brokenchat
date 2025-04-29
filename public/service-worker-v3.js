@@ -21,7 +21,7 @@
     };
 
     event.waitUntil(
-      self.registration.showNotification(payload.title+"sssgg", options)
+      self.registration.showNotification(payload.title, options)
     );
   });
   
@@ -34,7 +34,7 @@
     if (url) {
       event.waitUntil(clients.openWindow(url));
     } else {
-      event.waitUntil(clients.openWindow('https://rich-bananas-sell.loca.lt'));
+      event.waitUntil(clients.openWindow('https://broken.chat'));
     }
   });
   
