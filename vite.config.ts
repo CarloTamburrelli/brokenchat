@@ -16,8 +16,9 @@ export default defineConfig({
     port: 3000, // Porta personalizzabile
     strictPort: true, // Fa sì che Vite non tenti altre porte se questa è occupata
     allowedHosts: [
-      'rich-bananas-sell.loca.lt',  // Aggiungi qui l'host generato da ngrok
-    'localhost',  // Puoi anche aggiungere localhost se necessario
+      'broken.chat', 
+      'www.broken.chat',  // Aggiungi qui l'host generato da ngrok
+      'localhost',  // Puoi anche aggiungere localhost se necessario
     ]
   },
   optimizeDeps: {
