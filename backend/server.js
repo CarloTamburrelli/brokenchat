@@ -5,6 +5,7 @@ const { Pool } = require('pg'); // per connettersi a PostgreSQL
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const Redis = require('ioredis');
+const { sendPushNotification } = require('./web_push');
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: process.env.REDIS_PORT || 6379
@@ -42,6 +43,42 @@ app.use(express.json());
 
 redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
 redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
+
+
+async function sendNotificationToUser(userId, nickname, message, conversation_id) {
+  try {
+    // Recupera la subscription dell'utente dal DB
+    const result = await pool.query('SELECT webpush_subscription FROM users WHERE id = $1', [userId]);
+
+    // Verifica se l'utente esiste
+    if (result.rowCount === 0) {
+      throw new Error('User not found');
+    }
+    console.log("eccoci prima dell'invio...", result.rows[0].webpush_subscription)
+
+    // Parse della subscription per ottenere l'oggetto Subscription
+    const subscription = result.rows[0].webpush_subscription;
+
+    // Costruzione del payload della notifica
+    const payload = JSON.stringify({
+      title: nickname, // Titolo della notifica
+      body: message,   // Corpo della notifica
+      data: {
+        url: `https://rich-bananas-sell.loca.lt/private-messages/${conversation_id}`
+      }
+    });
+
+
+    // Invia la notifica push
+    await sendPushNotification(subscription, payload);
+
+    console.log('Notifica inviata con successo!');
+  } catch (error) {
+    console.error('Errore nell\'invio della notifica:', error);
+    throw new Error('Errore nell\'invio della notifica');
+  }
+}
+
 
 app.get('/', async (req, res) => {
   res.status(200).json({ message: 'Very nice' });
@@ -205,7 +242,7 @@ const getNearbyChats = async (token, lat, lon) => {
            FROM chats c
            LEFT JOIN users as u ON u.token = $1
            LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id 
-           WHERE r.role_type IS DISTINCT FROM 4`
+           WHERE r.role_type IS DISTINCT FROM 4 AND c.is_private = false`
       ,[token]);
       const allChats = allChatsResult.rows;
 
@@ -251,6 +288,65 @@ const getNearbyChats = async (token, lat, lon) => {
       throw error;
   }
 };
+
+app.get("/check-webpush-subscription/:userId", async (req, res) => {
+  console.log("check-webpush-subscription....")
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // Controlla se l'utente ha una subscription
+    const result = await pool.query(
+      "SELECT webpush_subscription FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (result.rowCount === 0 || !result.rows[0].webpush_subscription) {
+      return res.json({ subscription: null }); // Nessuna subscription trovata
+    }
+
+    return res.json({ subscription: result.rows[0].webpush_subscription }); // Restituisci la subscription se esiste
+  } catch (error) {
+    console.error("Error checking web push subscription:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+app.post("/register-webpush", async (req, res) => {
+  try {
+    const { userId, subscription } = req.body;
+
+    if (!userId || !subscription) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Verifica che l'utente sia valido
+    const userCheck = await pool.query(
+      "SELECT id FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (userCheck.rowCount === 0) {
+      return res.status(401).json({ error: "Unauthorized: Invalid user or token" });
+    }
+
+    // Salva la subscription nel database
+    await pool.query(
+      "UPDATE users SET webpush_subscription = $1 WHERE id = $2",
+      [subscription, userId]
+    );
+
+    res.json({ message: "Web push subscription saved successfully" });
+  } catch (error) {
+    console.error("Error saving web push subscription:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 
 app.post("/report", async (req, res) => {
@@ -1377,7 +1473,12 @@ io.on('connection', (socket) => {
 
       const isMember = await redisClient.sismember(`private_room:${socket.conversationId}`, newMessage.target_id);
 
+      newMessage.is_online = await redisClient.sismember('online', newMessage.target_id);
+      sendNotificationToUser(newMessage.target_id, socket.nickname, newMessage.text, socket.conversationId);
+
       if (!isMember) {
+
+
         // il messaggio e' nuovo solo se l'altro utente non si trova nella chat
         await pool.query(
           `UPDATE conversations
@@ -1412,8 +1513,6 @@ io.on('connection', (socket) => {
         })
 
       }
-
-      newMessage.is_online = await redisClient.sismember('online', newMessage.target_id);
 
       
       io.to(socket.conversationId).emit('broadcast_private_messages', newMessage);

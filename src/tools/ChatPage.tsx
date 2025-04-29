@@ -18,6 +18,7 @@ import ban_user_w from '../assets/ban_user_w.png';
 import BannedModal from './BannedModal';
 import BannedUsersModal from './BannedUsersModal';
 import { isValidNickname } from '../utils/validations';
+import LoadingSpinner from './LoadingSpinner';
 
 
 type MessageData = {
@@ -395,7 +396,14 @@ function ChatPage() {
 
   const handleRegisterUser = async () => {
 
+    if (!isValidNickname(nickname)) {
+      setError("The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed");
+      setValidUsername(false)
+      return;
+    }
+
     try {
+      setLoading(true);
       const response = await fetchWithPrefix(`/register-user?`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -406,6 +414,7 @@ function ChatPage() {
       window.location.reload(); // Ricarica la chat con il nuovo token
     } catch (error: any) {
       setError(error.message);
+      setLoading(false);
       setValidUsername(false)
     }
   };
@@ -413,7 +422,7 @@ function ChatPage() {
 
   // Se la pagina è in caricamento
   if (loading) {
-    return BaseWaiting(<div>Caricamento...</div>);
+    return BaseWaiting(<div>Loading...</div>);
   }
 
   // Se c'è un errore nel recupero dei dati
@@ -863,7 +872,7 @@ function ChatPage() {
       
     }
   };
-  
+
   
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
@@ -1033,12 +1042,12 @@ function ChatPage() {
           )}
 
           <div className="w-full flex justify-center mt-5">
-          <button
+          {!loading ? (<button
               onClick={handleRegisterUser}
             className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-indigo-500 hover:to-blue-500 transition-all duration-300 text-white font-semibold py-2 px-6 rounded-xl shadow-lg hover:shadow-xl active:scale-95 w-full md:w-[400px]"
           >
             🚀 JOIN!
-          </button>
+          </button>) : (<LoadingSpinner />)}
         </div>
 
         <div className="mt-4 text-center">
@@ -1062,11 +1071,11 @@ function ChatPage() {
     onTouchMove={handleTouchMove}
   >
     <div style={{ marginBottom: '4px'}}>
-      <div className="bg-blue-300 text-white p-6 rounded-b-lg">
+      {(isChatLocked == false) && (<div className="bg-blue-300 text-white p-6 rounded-b-lg">
         <h2 className="text-2xl font-semibold mb-2">{chatData?.name}</h2>
         <p className="text-lg mb-4">{chatData?.description}</p>
         <p className="text-sm italic">Only the last 100 messages are saved in the chat.</p>
-      </div>
+      </div>)}
       {messages.map((msg, index) => (
         renderMessage(msg, index)
       ))}

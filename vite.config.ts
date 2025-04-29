@@ -16,7 +16,7 @@ export default defineConfig({
     port: 3000, // Porta personalizzabile
     strictPort: true, // Fa sì che Vite non tenti altre porte se questa è occupata
     allowedHosts: [
-      'e421-93-70-85-159.ngrok-free.app',  // Aggiungi qui l'host generato da ngrok
+      'rich-bananas-sell.loca.lt',  // Aggiungi qui l'host generato da ngrok
     'localhost',  // Puoi anche aggiungere localhost se necessario
     ]
   },

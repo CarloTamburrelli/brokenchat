@@ -25,3 +25,6 @@ dist-ssr
 
 # settings vite
 .env
+
+# settings node
+backend/.env

@@ -12,6 +12,11 @@ export const getPosition = (): Promise<{ latitude: number; longitude: number }> 
         },
         (error) => {
           reject(error);
+        },
+        {
+          enableHighAccuracy: false, // <--- più veloce
+          timeout: 5000, // <--- massimo 5 secondi
+          maximumAge: 10000 // usa una posizione recente se disponibile (10 sec)
         }
       );
     });

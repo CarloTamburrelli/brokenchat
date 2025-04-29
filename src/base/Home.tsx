@@ -11,6 +11,7 @@ import LoadingSpinner from '../tools/LoadingSpinner';
 import create_chat from '../assets/create_chat.png';
 import { welcomeMessages } from '../utils/consts';
 import { socket } from "../utils/socket"; // Importa il socket
+import usePushNotifications from '../utils/usePushNotifications';
 
 type Chatroom = {
   id: string;
@@ -43,6 +44,8 @@ export default function Home() {
   const [welcomeStr, setWelcomeStr] = useState<string>('');
   const [headerHeight, setHeaderHeight] = useState(0);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
+
+  usePushNotifications(userId!) //web notification
 
   const handleChangeNickname = async () => {
     try {
@@ -80,6 +83,7 @@ export default function Home() {
 
     try {
     // Invia la richiesta con o senza latitudine/longitudine
+
 
       const base_url = `/get-user?token=${token}`
     
@@ -153,7 +157,7 @@ export default function Home() {
 
       const response = await fetchWithPrefix(total_url);
 
-      console.log("recupero...", response)
+      //console.log("recupero...", response)
 
 
       if (response.nearbyChats && Object.keys(response.nearbyChats).length !== 0) {
@@ -201,15 +205,21 @@ export default function Home() {
 
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeStr(welcomeMessages[randomIndex]);
-
-    setTimeout(() => {
-      if (headerRef.current) {
-        setHeaderHeight(headerRef.current.offsetHeight);
-      }
-    }, 100); // puoi aumentare tipo a 100ms se vuoi essere sicuro
-
     
   }, []);
+
+
+  useEffect(() => {
+
+    if (!loading) {
+      setTimeout(() => {
+        if (headerRef.current) {
+          setHeaderHeight(headerRef.current.offsetHeight);
+        }
+      }, 300);
+    }
+
+  }, [loading])
 
   useEffect(() => {
 
