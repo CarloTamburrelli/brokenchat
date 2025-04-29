@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0', // Ascolta su tutte le interfacce di rete
-    port: 3000, // Porta personalizzabile
+    port: 80, // Porta personalizzabile
     strictPort: true, // Fa sì che Vite non tenti altre porte se questa è occupata
     allowedHosts: [
       'rich-bananas-sell.loca.lt',  // Aggiungi qui l'host generato da ngrok
