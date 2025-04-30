@@ -85,7 +85,7 @@ app.get('/', async (req, res) => {
 });
 
 const isValidNickname = (nickname) => {
-  const regex = /^[a-zA-Z0-9_]{6,17}$/;
+  const regex = /^[a-zA-Z0-9_]{3,17}$/;
   return regex.test(nickname);
 };
 
@@ -120,7 +120,7 @@ app.post('/create-chat', async (req, res) => {
     } else {
 
       if (!isValidNickname(yourNickname)) {
-        return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+        return res.status(400).json({ message: 'The nickname is not valid, minimum 3 characters and do not use special symbols, only _ and numbers are allowed' });
       }
 
       const check = await pool.query(
@@ -1266,7 +1266,7 @@ app.post("/register-user", async (req, res) => {
   try {
 
     if (!isValidNickname(nickname)) {
-      return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+      return res.status(400).json({ message: 'The nickname is not valid, minimum 3 characters and do not use special symbols, only _ and numbers are allowed' });
     }
 
     const check = await pool.query(
@@ -1304,7 +1304,7 @@ app.post("/update-nickname", async (req, res) => {
   try {
 
     if (!isValidNickname(nickname)) {
-      return res.status(400).json({ message: 'The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed' });
+      return res.status(400).json({ message: 'The nickname is not valid, minimum 3 characters and do not use special symbols, only _ and numbers are allowed' });
     }
 
     const check = await pool.query(

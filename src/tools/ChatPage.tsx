@@ -397,7 +397,7 @@ function ChatPage() {
   const handleRegisterUser = async () => {
 
     if (!isValidNickname(nickname)) {
-      setError("The nickname is not valid, minimum 6 characters and do not use special symbols, only _ and numbers are allowed");
+      setError("The nickname is not valid, minimum 3 characters and do not use special symbols, only _ and numbers are allowed");
       setValidUsername(false)
       return;
     }

@@ -76,8 +76,8 @@ function CreateChatForm() {
     } else if (description.trim() === '') {
       setError(' Add a short description to let others know what this chat is about.');
       return false;
-    } else if (chatName.length < 6) {
-      setError('Chat name must contain at least 6 characters');
+    } else if (chatName.length < 5) {
+      setError('Chat name must contain at least 5 characters');
       return false;
     } else if (description.length < 10) {
       setError('Chat description must contain at least 10 characters');
