@@ -7,10 +7,13 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 **TODO**
 
 - messaggi privati:
-  - invio notifiche FCM (dobbiamo avere prima un server?)
-  - hai inserito le notifiche push, devi migliorare la risposta, perche' adesso restituisce un json e il link alla notifica e' sbagliato, inoltre la notifica deve essere inviata solo se l'utente non e' online (altrimenti gia' ci pensa la notifica colorata di fianco che ho mess) SEMBRA NON FUNZIONI CON IOS!:D
-  - ridurre i nickname a 3
-  - le notifiche in produzione sembrano non andare, controllare log
+  - ridurre i nickname a 3 caratter
+  - migliora la SEO NELLA HOME!!!
+
+
+*TODO SE FAI l'APP*
+
+  - invio notifiche FCM [app]
 
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:

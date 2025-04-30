@@ -20,7 +20,7 @@ export default function usePushNotifications(userId: number) {
         const response = await fetchWithPrefix(`/check-webpush-subscription/${userId}`);
 
 
-        console.log("RISPOSTONA", response)
+        //console.log("RISPOSTONA", response)
 
         if (response.subscription) {
           console.log('User already has a web push subscription.');
