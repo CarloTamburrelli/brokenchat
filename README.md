@@ -7,8 +7,7 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 **TODO**
 
 - messaggi privati:
-  - ridurre i nickname a 3 caratter
-  - migliora la SEO NELLA HOME!!!
+  - migliora la SEO NELLA HOME!!!(QUASI FATTO!, devo installare Helmet e fare quindi i tag meta dinamici e poi provare il tutto!! :D)
 
 
 *TODO SE FAI l'APP*

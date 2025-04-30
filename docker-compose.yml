@@ -46,6 +46,15 @@ services:
     networks:
       - chat-net
 
+  rendertron:
+    build:
+      context: ./backend/rendertron  # Usa la directory dove c'è il Dockerfile
+    container_name: rendertron
+    ports:
+      - 3001:3000  # Mappa la porta esterna 3001 alla 3000 interna
+    networks:
+      - chat-net
+
 volumes:
   postgres_data:
 

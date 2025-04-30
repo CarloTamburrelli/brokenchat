@@ -19,6 +19,8 @@ import BannedModal from './BannedModal';
 import BannedUsersModal from './BannedUsersModal';
 import { isValidNickname } from '../utils/validations';
 import LoadingSpinner from './LoadingSpinner';
+import { Helmet } from 'react-helmet-async';
+
 
 
 type MessageData = {
@@ -873,8 +875,30 @@ function ChatPage() {
     }
   };
 
+  let notificationLabel = ""
+
+  if (unreadPrivateMessagesCount > 0) {
+    notificationLabel = "("+unreadPrivateMessagesCount+") ";
+  }
+
   
   return (
+    <>
+    <Helmet>
+      <title>{notificationLabel} {chatData?.name || ''} - Broken Chat</title>
+
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={`https://broken.chat/chat/${chatId}`} />
+      <meta property="og:title" content={`${notificationLabel} ${chatData?.name || ''} - Broken Chat`} />
+      <meta property="og:description" content={chatData?.description || 'Wherever you are in the world there will always be someone to talk to, simply, anonymously and quickly, this is Broken Chat!'} />
+      <meta property="og:image" content="https://broken.chat/src/assets/logo.png" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={`https://broken.chat/chat/${chatId}`} />
+      <meta name="twitter:title" content={`${notificationLabel} ${chatData?.name || ''} - Broken Chat`} />
+      <meta name="twitter:description" content={chatData?.description || 'Wherever you are in the world there will always be someone to talk to, simply, anonymously and quickly, this is Broken Chat!'} />
+      <meta name="twitter:image" content="https://broken.chat/src/assets/logo.png" />
+    </Helmet>
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
       {(isChatLocked == false) && (<div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
@@ -1180,6 +1204,7 @@ function ChatPage() {
      
       </div>)}
     </div>
+    </>
   );
   
   
