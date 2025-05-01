@@ -13,8 +13,8 @@ self.addEventListener('push', function (event) {
 
     const options = {
       body: payload.body,
-      icon: 'https://broken.chat/logo_without_text.png',
-      badge: 'https://broken.chat/logo_without_text.png',
+      icon: '/logo_without_text.png',
+      badge: '/logo_without_text.png',
       data: payload.data, // Serve per usarlo nel click
     };
 
