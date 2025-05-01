@@ -14,8 +14,8 @@ const useLongPress = (
     delay = 400 
   }: UseLongPressOptions = {}
 ) => {
-  const [longPressTriggered, setLongPressTriggered] = useState(false);
-  const timeout = useRef<NodeJS.Timeout | null>(null);
+  const [, setLongPressTriggered] = useState<boolean>(false);
+  const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const target = useRef<EventTarget | null>(null);
 
   const start = useCallback(
@@ -42,7 +42,7 @@ const useLongPress = (
   );
 
   const clear = useCallback(
-    (event: LongPressEvent) => {
+    (_event: LongPressEvent) => {
       if (timeout.current) clearTimeout(timeout.current);
       setLongPressTriggered(false);
 

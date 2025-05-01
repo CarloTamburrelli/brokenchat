@@ -40,7 +40,6 @@ const PrivateChatPage = () => {
   const navigate = useNavigate();
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
-  const [userName, setUserName] = useState("");  
   const [quotedMessage, setQuotedMessage] = useState<MessageData | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
@@ -55,7 +54,7 @@ const PrivateChatPage = () => {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
-  const [isLoadingConverting, setIsLoadingConverting] = useState(false);
+  const [,setIsLoadingConverting] = useState(false);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [firstLoad, setFirstLoad] = useState(true);

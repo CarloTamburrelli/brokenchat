@@ -65,7 +65,7 @@ function ChatPage() {
   const [quotedMessage, setQuotedMessage] = useState<MessageData | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [, setIsAtBottom] = useState(true);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const { chatId } = useParams();
@@ -217,7 +217,7 @@ function ChatPage() {
 
         socket.off('banned');
 
-        socket.on('banned', ({ msg, chat_id }) => {
+        socket.on('banned', ({ chat_id }) => {
           if (chatId === chat_id ) {
             socket.off('join-room');
             socket.off('broadcast_messages');

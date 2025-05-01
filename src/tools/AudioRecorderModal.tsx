@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect} from "react";
+import React, { useState, useRef} from "react";
 import microphoneIcon from "../assets/audio.png"; // Icona microfono
 import stopRecordingIcon from "../assets/stop_audio.png"; // Icona stop registrazione
 import send from '../assets/send.png';
