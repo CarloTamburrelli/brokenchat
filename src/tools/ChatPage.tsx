@@ -835,7 +835,7 @@ function ChatPage() {
             <strong
               onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null}
               onTouchStart={() => msg.user_id ? onUserClicked(msg.user_id): null}
-              className={`cursor-pointer font-semibold z-10 no-select 
+              className={`cursor-pointer font-semibold font-mono z-10 no-select 
                 ${usersList.some(user => user.split("####")[1] === String(msg.user_id)) ? "text-blue-400" : "text-gray-400"}`}
               style={{ pointerEvents: "auto" }}
             >

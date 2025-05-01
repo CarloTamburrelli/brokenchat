@@ -9,6 +9,14 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
   - invio notifiche FCM [app]
 
 
+** TODO **
+
+- cambiare scritta "Messaggio multimediale inviato" in engl
+- evitare notifica se utente gia' online
+- mettere foto e VIDEO?
+- cambiare scritta "Scrivi un messaggio"
+
+
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 
 <div className="flex items-center p-4 bg-gray-800 text-white">
