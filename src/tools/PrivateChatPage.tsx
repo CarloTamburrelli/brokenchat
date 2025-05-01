@@ -229,6 +229,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
       id: string; 
       audio: string;
       alert_message: boolean;
+      target_id: number;
       quoted_msg?: any; // Permette quoted_msg opzionale
     } = {
       id: generateUniqueId(),
@@ -237,6 +238,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
       text: '', // Nessun testo perché è un messaggio audio
       audio: base64Audio, // L'audio codificato in Base64
       alert_message: false,
+      target_id: targetUser!.id,
     };
 
     if (quotedMessage != null) {

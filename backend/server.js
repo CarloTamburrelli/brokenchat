@@ -59,6 +59,11 @@ async function sendNotificationToUser(userId, nickname, message, conversation_id
     // Parse della subscription per ottenere l'oggetto Subscription
     const subscription = result.rows[0].webpush_subscription;
 
+    if (subscription == null){
+      //l'utente non ha accettato i permessi quindi nessuna notific
+      return;
+    }
+
     // Costruzione del payload della notifica
     const payload = JSON.stringify({
       title: nickname, // Titolo della notifica
