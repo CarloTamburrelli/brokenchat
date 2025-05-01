@@ -1,4 +1,4 @@
-  // version: 1.2.4
+  import logoIcon from '/src/assets/logo_without_text.png';
   
   self.addEventListener('push', function (event) {
     console.log("ricevuta!", event);
@@ -15,8 +15,8 @@
 
     const options = {
       body: payload.body,
-      icon: '/src/assets/logo_without_text.png',
-      badge: '/src/assets/logo_without_text.png',
+      icon: logoIcon,
+      badge: logoIcon,
       data: payload.data, // Serve per usarlo nel click
     };
 

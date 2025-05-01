@@ -23,6 +23,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg'],  // Aggiungi questa riga
   },
+  build: {
+    manifest: true,  // Attiva la creazione del manifesto
+  },
   
 
 })
