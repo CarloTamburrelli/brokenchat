@@ -34,7 +34,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: your_password
       DB_NAME: chat_db
-      REDIS_HOST: redis  # 🔥 AGGIUNTO REDIS
+      REDIS_HOST: redis
       REDIS_PORT: 6379
     volumes:
       - ./backend:/app
@@ -43,15 +43,6 @@ services:
     depends_on:
       - postgres
       - redis
-    networks:
-      - chat-net
-
-  rendertron:
-    build:
-      context: ./backend/rendertron  # Usa la directory dove c'è il Dockerfile
-    container_name: rendertron
-    ports:
-      - 3001:3000  # Mappa la porta esterna 3001 alla 3000 interna
     networks:
       - chat-net
 

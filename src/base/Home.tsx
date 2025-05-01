@@ -12,7 +12,6 @@ import create_chat from '../assets/create_chat.png';
 import { welcomeMessages } from '../utils/consts';
 import { socket } from "../utils/socket"; // Importa il socket
 import usePushNotifications from '../utils/usePushNotifications';
-import { Helmet } from 'react-helmet-async';
 
 type Chatroom = {
   id: string;
@@ -224,6 +223,16 @@ export default function Home() {
 
   useEffect(() => {
 
+    if (unreadPrivateMessagesCount > 0) {
+      document.title = "("+unreadPrivateMessagesCount+") Broken Chat – Chat with everyone, everywhere";
+    } else {
+      document.title = "Broken Chat – Chat with everyone, everywhere";
+    }
+
+  }, [unreadPrivateMessagesCount])
+
+  useEffect(() => {
+
     if (!userId) {
       return;
     }
@@ -289,30 +298,7 @@ export default function Home() {
     );
   };
 
-  let notificationLabel = ""
-
-  if (unreadPrivateMessagesCount > 0) {
-    notificationLabel = "("+unreadPrivateMessagesCount+") ";
-  }
-
-
   return (
-    <>
-    <Helmet>
-      <title>{notificationLabel}Broken Chat – Chat with everyone, everywhere</title>
-
-      <meta property="og:type" content="website" />
-      <meta property="og:url" content="https://broken.chat/" />
-      <meta property="og:title" content={`${notificationLabel}Broken Chat – Chat with everyone, everywhere`} />
-      <meta property="og:description" content="Wherever you are in the world there will always be someone to talk to, simply, anonymously and quickly, this is Broken Chat!" />
-      <meta property="og:image" content="https://broken.chat/src/assets/logo.png" />
-
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:url" content="https://broken.chat/" />
-      <meta name="twitter:title" content={`${notificationLabel}Broken Chat – Chat with everyone, everywhere`} />
-      <meta name="twitter:description" content="Wherever you are in the world there will always be someone to talk to, simply, anonymously and quickly, this is Broken Chat!" />
-      <meta name="twitter:image" content="https://broken.chat/src/assets/logo.png" />
-    </Helmet>
     <div className="flex flex-col justify-center items-center max-w-3xl mx-auto">
   <img src={Logo} 
   alt="Logo" 
@@ -390,8 +376,5 @@ export default function Home() {
 
 
 </div>
-</>
-
-
   );
   }

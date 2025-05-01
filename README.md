@@ -4,12 +4,6 @@
 
 Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
-**TODO**
-
-- messaggi privati:
-  - migliora la SEO NELLA HOME!!!(QUASI FATTO!, devo installare Helmet e fare quindi i tag meta dinamici e poi provare il tutto!! :D)
-
-
 *TODO SE FAI l'APP*
 
   - invio notifiche FCM [app]
