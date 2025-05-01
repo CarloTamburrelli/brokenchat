@@ -1,6 +1,4 @@
-  import logoIcon from '/src/assets/logo_without_text.png';
-  
-  self.addEventListener('push', function (event) {
+self.addEventListener('push', function (event) {
     console.log("ricevuta!", event);
 
     let payload = { title: 'Nuovo messaggio', body: 'Hai un nuovo messaggio', data: {} };
@@ -15,8 +13,8 @@
 
     const options = {
       body: payload.body,
-      icon: logoIcon,
-      badge: logoIcon,
+      icon: '/logo_without_text.png',
+      badge: '/logo_without_text.png',
       data: payload.data, // Serve per usarlo nel click
     };
 
