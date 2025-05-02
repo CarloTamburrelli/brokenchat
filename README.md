@@ -11,10 +11,7 @@ Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
 ** TODO **
 
-- cambiare scritta "Messaggio multimediale inviato" in engl
-- evitare notifica se utente gia' online
 - mettere foto e VIDEO?
-- cambiare scritta "Scrivi un messaggio"
 
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
@@ -23,7 +20,7 @@ mi piacciono i colori bg-gray-800 e bg-gray-700:
         {/* Input della chat */}
         <input
           type="text"
-          placeholder="Scrivi un messaggio..."
+          placeholder="Type a message..."
           className="flex-1 p-2 bg-gray-700 text-white rounded-l-md"
         />
         

@@ -959,7 +959,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
         }
       }}
       className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
-      placeholder="Scrivi un messaggio..."
+      placeholder="Type a message..."
       rows={1}
       style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
     />

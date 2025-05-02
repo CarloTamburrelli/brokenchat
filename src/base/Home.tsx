@@ -45,7 +45,7 @@ export default function Home() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
 
-  usePushNotifications(userId!) //web notification
+  usePushNotifications(userId!, true) //web notification
 
   const handleChangeNickname = async () => {
     try {
@@ -278,7 +278,7 @@ export default function Home() {
 
   <div className={`flex ${alreadyJoined && alreadyJoined !== "" && "justify-center"} md:flex-1`}>
     <Link to="/create-chat">
-    <button className="bg-black text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
+    <button className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
     {/* Immagine a sinistra del bottone */}
     <img src={create_chat} alt="Create Chat" className="w-5 h-5" />
     <span className='font-mono'>Create Chat</span>

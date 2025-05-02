@@ -1479,7 +1479,9 @@ io.on('connection', (socket) => {
       const isMember = await redisClient.sismember(`private_room:${socket.conversationId}`, newMessage.target_id);
 
       newMessage.is_online = await redisClient.sismember('online', newMessage.target_id);
-      sendNotificationToUser(newMessage.target_id, socket.nickname, newMessage.text, socket.conversationId);
+      if (!newMessage.is_online) {
+        sendNotificationToUser(newMessage.target_id, socket.nickname, newMessage.text, socket.conversationId);
+      }
 
       if (!isMember) {
 

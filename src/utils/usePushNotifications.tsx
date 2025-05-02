@@ -6,8 +6,9 @@ interface SubscriptionBody {
   subscription: PushSubscription;
 }
 
-export default function usePushNotifications(userId: number) {
+export default function usePushNotifications(userId: number,  enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
     if (!userId) return; // Non fare nulla se l'utente non è loggato
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.log('Push notifications not supported');

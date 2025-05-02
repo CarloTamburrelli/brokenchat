@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import Header from '../base/header';
 import Logo from '../assets/logo.png';
@@ -19,6 +20,7 @@ import BannedModal from './BannedModal';
 import BannedUsersModal from './BannedUsersModal';
 import { isValidNickname } from '../utils/validations';
 import LoadingSpinner from './LoadingSpinner';
+import usePushNotifications from '../utils/usePushNotifications';
 
 
 
@@ -106,6 +108,12 @@ function ChatPage() {
     '🤪', '😠', '🤑', '🤩', '😎', '😆', '🤣', '🤗', '😋', '😝', 
     '😏', '😈', '👻', '💀', '🤯', '🦄', '👽', '💩', '👀', '🍑'
   ];
+
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const enablePush = params.get("enablePush") === "true";
+
+  usePushNotifications(userId!, enablePush);
 
   const onLongPress = (e: any, msg_id: number | string) => {
     if (isScrolling) {
@@ -422,7 +430,8 @@ function ChatPage() {
       });
 
       localStorage.setItem("authToken", response.token); // Salva il nuovo token
-      window.location.reload(); // Ricarica la chat con il nuovo token
+      window.location.href = `${window.location.pathname}?enablePush=true`;
+
     } catch (error: any) {
       setError(error.message);
       setLoading(false);
@@ -864,7 +873,7 @@ function ChatPage() {
             {/* Condizione per verificare se c'è un audio */}
             {(msg.audio === null || msg.audio === undefined) ? (
               <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
-                {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
+                {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <span><i>Multimedia sent </i>🎬</span>}
               </span>
             ) : (
               <span className='ml-2'>
@@ -942,7 +951,7 @@ function ChatPage() {
         >
           {/* Header con titolo e pulsante di chiusura */}
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Profilo di {profileToShow?.nickname}</h2>
+            <h2 className="text-xl font-bold text-gray-900">{profileToShow?.nickname}'s profile</h2>
             <button
               onClick={() => setProfileToShow(null)}
               className="text-gray-500 hover:text-black text-2xl font-semibold"
@@ -1178,7 +1187,7 @@ function ChatPage() {
             }
           }}
           className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
-          placeholder="Scrivi un messaggio..."
+          placeholder="Type a message..."
           rows={1}
           style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
         />

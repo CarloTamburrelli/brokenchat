@@ -142,7 +142,7 @@ function CreateChatForm() {
       // Gestisci la risposta del server (messaggio di successo e id della chat)
       setSuccessMessage(response_json.message);
       console.log("Chat ID:", response_json.chatId);
-      navigate("/chat/"+response_json.chatId);
+      navigate("/chat/" + response_json.chatId + "?enablePush=true");
 
       // Resetta il form (opzionale)
       setChatName("");
