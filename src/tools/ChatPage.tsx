@@ -961,7 +961,7 @@ function ChatPage() {
                   <img
                     src={`${msg.message}`}
                     alt="sent"
-                    className="relative z-20 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                    className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
                     onClick={() => openImageModal(msg.message!)}
                     onTouchEnd={() => {
                       if (isScrolling) {

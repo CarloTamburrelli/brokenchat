@@ -1,6 +1,6 @@
 import React, { useState, useRef} from "react";
-import microphoneIcon from "../assets/audio.png"; // Icona microfono
-import stopRecordingIcon from "../assets/stop_audio.png"; // Icona stop registrazione
+import microphoneIcon from "../assets/audio.png"; 
+import stopRecordingIcon from "../assets/stop_audio.png";
 import send from '../assets/send.png';
 
 const AudioRecorderModal: React.FC<{ onAudioRecorded: (audioBlob: Blob) => void }> = ({ onAudioRecorded }) => {
@@ -78,7 +78,7 @@ const AudioRecorderModal: React.FC<{ onAudioRecorded: (audioBlob: Blob) => void 
           <div className="bg-white p-6 rounded-lg shadow-lg relative w-96" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-800">
-              {recording ? (<p className="text-red-600 font-bold text-center">Recording...</p>) : "Conferma audio"}
+              {recording ? (<p className="text-red-600 font-bold text-center">Recording...</p>) : "Confirm recording"}
               </h2>
               <button className="text-gray-500 hover:text-black text-2xl font-semibold" onClick={handleClose}>✕</button>
             </div>

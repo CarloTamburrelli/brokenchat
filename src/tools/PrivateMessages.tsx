@@ -4,7 +4,8 @@ import Logo from '../assets/logo_without_text.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from "../utils/formatDate";
 import LoadingSpinner from "./LoadingSpinner";
-import { socket } from "../utils/socket"; // Importa il socket
+import { socket } from "../utils/socket";
+import microphoneIcon from "../assets/audio.png";
 
 // Definizione del tipo per la conversazione
 interface UserConversation {
@@ -173,7 +174,7 @@ const PrivateMessages = () => {
 
             {conversation.last_message_type === 2 && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+                <img src={microphoneIcon} alt="Audio" className="w-5 h-5" />
                 <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
                   <span className="mx-1">·</span>
                   {formatDate(conversation.last_message_time)}

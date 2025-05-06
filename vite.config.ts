@@ -16,7 +16,7 @@ export default defineConfig({
     port: 3000, // Porta personalizzabile
     strictPort: true, // Fa sì che Vite non tenti altre porte se questa è occupata
     allowedHosts: [
-      'cbb4-2-37-207-57.ngrok-free.app',
+      '3679-2-37-207-57.ngrok-free.app',
       'broken.chat',
       'localhost',  // Puoi anche aggiungere localhost se necessario
     ]
