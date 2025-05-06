@@ -45,7 +45,7 @@ redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
 redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
 
 
-async function sendNotificationToUser(userId, nickname, message, conversation_id) {
+async function sendNotificationToUser(userId, nickname, message, conversation_id, msg_type) {
   try {
     // Recupera la subscription dell'utente dal DB
     const result = await pool.query('SELECT webpush_subscription FROM users WHERE id = $1', [userId]);
@@ -64,10 +64,18 @@ async function sendNotificationToUser(userId, nickname, message, conversation_id
       return;
     }
 
+    let bodyText = message;
+
+    if (msg_type === 2) {
+      bodyText = "🎤 Audio sent";
+    } else if (msg_type === 3) {
+      bodyText = "🌅 Image sent";
+    }
+
     // Costruzione del payload della notifica
     const payload = JSON.stringify({
       title: nickname, // Titolo della notifica
-      body: message,   // Corpo della notifica
+      body: bodyText,   // Corpo della notifica
       data: {
         url: `https://broken.chat/private-messages/${conversation_id}`
       }
@@ -708,11 +716,27 @@ app.get('/chat/:chatId', async (req, res) => {
     }
 
     const messagesResult = await pool.query(
-      `SELECT m.id, u.nickname, m.message , m.user_id 
-       FROM messages as m
-       JOIN users as u ON u.id = m.user_id 
-       WHERE m.chat_id = $1  
-       ORDER BY m.created_at ASC`, 
+      `SELECT 
+        m.id,
+        u.nickname,
+        m.message,
+        m.user_id,
+        m.msg_type,
+        CASE 
+          WHEN q.id IS NOT NULL THEN json_build_object(
+            'id', q.id,
+            'nickname', uq.nickname,
+            'msg_type', q.msg_type,
+            'message', q.message
+          )
+          ELSE NULL
+        END AS quoted_msg
+      FROM messages AS m
+      JOIN users AS u ON u.id = m.user_id 
+      LEFT JOIN messages AS q ON q.id = m.quoted_message_id 
+      LEFT JOIN users AS uq ON uq.id = q.user_id
+      WHERE m.chat_id = $1
+      ORDER BY m.created_at ASC`, 
       [chatId]
     );
 
@@ -1008,9 +1032,19 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
       const conversation = conversationResult.rows[0];
 
-      const messagesQuery = `SELECT m.id, u.nickname, m.message , m.user_id 
+      const messagesQuery = `SELECT m.id, u.nickname, m.message , m.user_id, m.msg_type, CASE 
+          WHEN q.id IS NOT NULL THEN json_build_object(
+            'id', q.id,
+            'nickname', uq.nickname,
+            'msg_type', q.msg_type,
+            'message', q.message
+          )
+          ELSE NULL
+        END AS quoted_msg 
        FROM messages as m
        JOIN users as u ON u.id = m.user_id 
+       LEFT JOIN messages AS q ON q.id = m.quoted_message_id 
+       LEFT JOIN users AS uq ON uq.id = q.user_id
        WHERE m.conversation_id = $1  
        ORDER BY m.created_at ASC
       `;
@@ -1082,6 +1116,7 @@ app.get("/conversations/all", async (req, res) => {
              END AS nickname,
              cm.message AS last_message,
              cm.created_at AS last_message_time,
+             cm.msg_type AS last_message_type,
              CASE
                 WHEN c.user_id1 = $1 THEN c.user_id2
                 ELSE c.user_id1
@@ -1104,7 +1139,7 @@ app.get("/conversations/all", async (req, res) => {
              END AS read 
       FROM conversations c
       LEFT JOIN LATERAL (
-        SELECT message, created_at
+        SELECT message, created_at, msg_type   
         FROM messages
         WHERE conversation_id = c.id
         ORDER BY created_at DESC
@@ -1377,17 +1412,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Ascolta per l'evento "message" (invio di un messaggio)
   socket.on('message', async (chatId, newMessage, userId) => {
-    // Invia il messaggio a tutti gli utenti della stanza
+    console.log("Sono nella socket message!");
     try {
-      // Salva il messaggio nel database
-      const is_a_multimedia_message = newMessage.audio ? true : false;
 
-      await pool.query(
-        'INSERT INTO messages (chat_id, user_id, message) VALUES ($1, $2, $3)',
-        [chatId, userId, !is_a_multimedia_message ? newMessage.text : '']
+      const result_message = await pool.query(
+        'INSERT INTO messages (chat_id, user_id, message, msg_type, quoted_message_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [chatId, userId, newMessage.text, newMessage.msg_type, newMessage.quoted_msg ? newMessage.quoted_msg.id : null]
       );
+
+      newMessage.id = result_message.rows[0].id;
       
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
@@ -1469,18 +1503,19 @@ io.on('connection', (socket) => {
     }
 
     try {
-      const is_a_multimedia_message = newMessage.audio ? true : false;
 
-      await pool.query(
-        'INSERT INTO messages (conversation_id, user_id, message) VALUES ($1, $2, $3)',
-        [socket.conversationId, socket.userId, !is_a_multimedia_message ? newMessage.text : '']
+      const result_message = await pool.query(
+        'INSERT INTO messages (conversation_id, user_id, message, msg_type, quoted_message_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [socket.conversationId, socket.userId, newMessage.text, newMessage.msg_type, newMessage.quoted_msg ? newMessage.quoted_msg.id : null]
       );
+
+      newMessage.id = result_message.rows[0].id;
 
       const isMember = await redisClient.sismember(`private_room:${socket.conversationId}`, newMessage.target_id);
 
       newMessage.is_online = await redisClient.sismember('online', newMessage.target_id);
       if (!newMessage.is_online) {
-        sendNotificationToUser(newMessage.target_id, socket.nickname, newMessage.text, socket.conversationId);
+        sendNotificationToUser(newMessage.target_id, socket.nickname, newMessage.text, socket.conversationId, newMessage.msg_type);
       }
 
       if (!isMember) {

@@ -19,6 +19,7 @@ interface UserConversation {
   geo_hidden: boolean;
   read: boolean;
   is_online: boolean;
+  last_message_type: number;
 }
 
 
@@ -78,25 +79,25 @@ const PrivateMessages = () => {
   }, []);
 
 
-    useEffect(() => {
-  
-      if (!userId) {
-        return;
-      }
-  
-      if (socket.connected) {
-        console.log("Socket gia' connesso!")
+  useEffect(() => {
+
+    if (!userId) {
+      return;
+    }
+
+    if (socket.connected) {
+      console.log("Socket gia' connesso!")
+      socket.emit('join-private-messages', userId);
+    } else {
+      console.log("Socket ancora da connettere!")
+      socket.connect();
+      socket.on('connect', () => {
+        console.log("Socket connesso, ora emetto join-room");
         socket.emit('join-private-messages', userId);
-      } else {
-        console.log("Socket ancora da connettere!")
-        socket.connect();
-        socket.on('connect', () => {
-          console.log("Socket connesso, ora emetto join-room");
-          socket.emit('join-private-messages', userId);
-        });
-      }
-  
-    }, [userId]);
+      });
+    }
+
+  }, [userId]);
 
 
   return (
@@ -156,18 +157,38 @@ const PrivateMessages = () => {
               Online
             </div>)}
             
-            {conversation.last_message && (
+            {conversation.last_message_type === 1 && conversation.last_message && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
-              <p className="break-all whitespace-pre-wrap">
-              {conversation.last_message.length > 100
+                <p className="break-all whitespace-pre-wrap">
+                  {conversation.last_message.length > 100
                     ? `${conversation.last_message.slice(0, 100)}...`
                     : conversation.last_message}
-              </p>
-              <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
-                <span className="mx-1">·</span>
-                {formatDate(conversation.last_message_time)}
-              </span>
-            </div>
+                </p>
+                <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+                  <span className="mx-1">·</span>
+                  {formatDate(conversation.last_message_time)}
+                </span>
+              </div>
+            )}
+
+            {conversation.last_message_type === 2 && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+                <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+                  <span className="mx-1">·</span>
+                  {formatDate(conversation.last_message_time)}
+                </span>
+              </div>
+            )}
+
+            {conversation.last_message_type === 3 && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="text-lg">📷</span>
+                <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+                  <span className="mx-1">·</span>
+                  {formatDate(conversation.last_message_time)}
+                </span>
+              </div>
             )}
           </div>
 

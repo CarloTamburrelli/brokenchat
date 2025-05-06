@@ -2,16 +2,28 @@
 
 ![alt text](preview.png "First preview app")
 
-Una sistema di chat che puoi usare come vuoi, tutto sparira' se tutti escono!
 
-*TODO SE FAI l'APP*
+**FUTURE TODO**
+ - cronjob automatic delete chats after 3 days
+  *FOR APP*
+    - invio notifiche FCM [app]
 
-  - invio notifiche FCM [app]
+
+**TODO**
+- mettere un log sull'output del server 
+
+QUERY DA ESEGUIR:
 
 
-** TODO **
+ALTER TABLE messages ADD COLUMN msg_type INTEGER DEFAULT 1 NOT NULL;
 
-- mettere foto e VIDEO?
+
+ALTER TABLE public.messages
+ADD COLUMN quoted_message_id INT NULL,
+ADD CONSTRAINT messages_quoted_message_id_fkey
+  FOREIGN KEY (quoted_message_id) REFERENCES public.messages(id) ON DELETE SET NULL;
+
+
 
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:

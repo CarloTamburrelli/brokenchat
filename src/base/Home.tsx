@@ -91,11 +91,11 @@ export default function Home() {
         ? `${base_url}&lat=${lat}&lon=${lon}`
         : `${base_url}`;
 
-        console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error, total_url)
+        //console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error, total_url)
 
         const response = await fetchWithPrefix(total_url);
 
-        console.log("risultato", response)
+        //console.log("risultato", response)
 
       if (response.nickname !== null) {
         setNickName(response.nickname)
@@ -153,7 +153,7 @@ export default function Home() {
         ? `${base_url}&lat=${lat}&lon=${lon}`
         : `${base_url}`;
 
-      console.log("sto per fare la richiesta getUserDetailsForFiltering: ", lat, lon, error, selectedFilter)
+      //console.log("sto per fare la richiesta getUserDetailsForFiltering: ", lat, lon, error, selectedFilter)
 
       const response = await fetchWithPrefix(total_url);
 
@@ -169,7 +169,6 @@ export default function Home() {
         setNearbyChats({})
         setMyChats([])
       } else if (response.userChats && response.userChats.length > 0) {
-        console.log("sono qui YES...", response.userChats)
         setMyChats(response.userChats)
         setNearbyChats({})
         setPopularChats([])
@@ -194,7 +193,7 @@ export default function Home() {
       return;
     }
 
-    console.log("getUserDetailsForFiltering", prevFilter.current, selectedFilter)
+    //console.log("getUserDetailsForFiltering", prevFilter.current, selectedFilter)
 
     getUserDetailsForFiltering();
     prevFilter.current = selectedFilter;
@@ -238,13 +237,13 @@ export default function Home() {
     }
 
     if (socket.connected) {
-      console.log("Socket gia' connesso!")
+      //console.log("Socket gia' connesso!")
       socket.emit('join-home', userId);
     } else {
-      console.log("Socket ancora da connettere!")
+      //console.log("Socket ancora da connettere!")
       socket.connect();
       socket.on('connect', () => {
-        console.log("Socket connesso, ora emetto join-room");
+        //console.log("Socket connesso, ora emetto join-room");
         socket.emit('join-home', userId);
       });
     }

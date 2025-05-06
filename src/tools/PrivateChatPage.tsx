@@ -6,11 +6,11 @@ import warning from '../assets/warning.png';
 import lucchetto from '../assets/lucchetto.png';
 import { fetchWithPrefix } from '../utils/api';
 import { socket } from "../utils/socket"; // Importa il socket
-import { generateUniqueId } from '../utils/generateUniqueId';
 import useLongPress from './useLongPress';
 import { getPosition } from "../utils/geolocation";
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import CameraCapture from "./CameraCapture";
 
 
 type User = {
@@ -28,8 +28,8 @@ type MessageData = {
     message: string | null;
     alert_message: boolean;
     user_id: number | null;
-    audio?: string | null;
     quoted_msg: MessageData | null;
+    msg_type: number;
   };
 
 const PrivateChatPage = () => {
@@ -54,9 +54,10 @@ const PrivateChatPage = () => {
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
-  const [,setIsLoadingConverting] = useState(false);
+  const [isLoadingConverting ,setIsLoadingConverting] = useState(false);
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [firstLoad, setFirstLoad] = useState(true);
   const token = localStorage.getItem('authToken');
   let alreadyJoined = false;
@@ -116,7 +117,7 @@ const PrivateChatPage = () => {
             message: newMessage.text,
             alert_message: false,
             user_id: newMessage.user_id,
-            audio: newMessage.audio || null, 
+            msg_type: newMessage.msg_type,
             quoted_msg: newMessage.quoted_msg || null,
         },
         ]);
@@ -164,6 +165,15 @@ useEffect(() => {
 
   }, [messages]);
 
+
+const openImageModal = (src: string) => {
+  setFullscreenImage(src);
+};
+
+const closeImageModal = () => {
+  setFullscreenImage(null);
+};
+
 const longPressEvent = useLongPress(
     (event, msgId) => onLongPress(event,msgId!), // Passa msgId
 )
@@ -181,9 +191,8 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
   const checkExistingConversation = async (userId: number) => {
     try {
-        console.log("inizio...");
+
         const response_json = await fetchWithPrefix(`/conversations/?token=${token}&user_id=${userId}`);
-        console.log("dopo...", response_json);
         if (response_json.conversation_id) {
           const url = goback 
           ? `/private-messages/${response_json.conversation_id}?goback=${goback}` 
@@ -226,18 +235,16 @@ const onLongPress = (e: any, msg_id: number | string) => {
       user_id: number | null; 
       nickname: string; 
       text: string; 
-      id: string; 
-      audio: string;
+      msg_type: number;
       alert_message: boolean;
       target_id: number;
       quoted_msg?: any; // Permette quoted_msg opzionale
     } = {
-      id: generateUniqueId(),
       user_id: authUser!.id,
       nickname: authUser!.nickname,
-      text: '', // Nessun testo perché è un messaggio audio
-      audio: base64Audio, // L'audio codificato in Base64
+      text: base64Audio,
       alert_message: false,
+      msg_type: 2,
       target_id: targetUser!.id,
     };
 
@@ -248,6 +255,30 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
 
     socket.emit('private-message', conversationId, newMessage);
+  };
+
+  const sendPhotoMessage = (base64Image: string) => {
+    const newMessage: {
+      user_id: number | null;
+      nickname: string;
+      text: string;
+      alert_message: boolean;
+      msg_type: number;
+      target_id: number;
+    } = {
+      user_id: authUser!.id,
+      nickname: authUser!.nickname,
+      text: base64Image,
+      alert_message: false,
+      msg_type: 3, // tipo immagine
+      target_id: targetUser!.id,
+    };
+
+
+    socket.emit('private-message', conversationId, newMessage);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
   };
   
 
@@ -372,15 +403,15 @@ const onLongPress = (e: any, msg_id: number | string) => {
         const newMessage: {
           user_id: number | null; 
           nickname: string; 
-          text: string; 
-          id: string; 
+          text: string;
           quoted_msg?: any; // Permette quoted_msg opzionale
           target_id?: number;
+          msg_type: number;
         } = { 
           user_id: authUser!.id, 
           nickname: authUser!.nickname, 
           text: message, 
-          id: generateUniqueId() 
+          msg_type: 1,
         };
   
         if (quotedMessage != null) {
@@ -538,17 +569,29 @@ const onLongPress = (e: any, msg_id: number | string) => {
       const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
 
       return (
+        <div
+          key={msg.id}
+          className={`w-full relative flex ${msg.user_id === authUser!.id ? "justify-end" : "justify-start"} ${isSameUserAsPrevious ? "pt-1" : "pt-3"}
+            ${selectedMessageId === msg.id ? "bg-gray-800" : ""}
+          `}
+        >
+          {/* Div invisibile per catturare long press sull'intera riga (solo se NON mio messaggio) */}
+          {msg.user_id !== authUser!.id && (
+            <div
+              className="absolute inset-0"
+              {...longPressEvent(msg.id)}
+            />
+          )}
         <div 
           key={msg.id} 
-          className={`px-2 relative flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
+          className={`px-2 flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
             ${msg.user_id === authUser!.id ? "ml-auto justify-end" : "mr-auto justify-start"}
             ${isSameUserAsPrevious ? "pt-1": "pt-3"}
-            ${selectedMessageId === msg.id ? "bg-gray-700 no-select pointer-events-none" : "bg-transparent"}`}
-          {...longPressEvent(msg.id)}
+            ${selectedMessageId === msg.id ? "bg-gray-800 no-select pointer-events-none" : "bg-transparent"}`}
         >
       
           {selectedMessageId === msg.id && (
-            <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-30" style={{ pointerEvents: "auto" }}>
+            <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg" style={{ pointerEvents: "auto" }}>
               <button className="text-sm hover:text-blue-400 px-2"
                onClick={(e) => {
                 e.stopPropagation();
@@ -570,7 +613,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
                   inputRef.current?.focus();
                 }, 100); // Ritardo di 100ms per evitare il click accidentale
               }}>
-                Rispondi
+                Reply
               </button>
 
               <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
@@ -590,7 +633,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
               }}
               
               >
-                Copia
+                Copy
               </button>
       
               <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
@@ -634,9 +677,36 @@ const onLongPress = (e: any, msg_id: number | string) => {
             <div className={`
               mb-2 p-2 rounded-md bg-gray-700 border-l-4 border-blue-400 text-sm text-gray-300 
               max-w-full
-              ${msg.user_id === authUser!.id ? "ml-auto text-right border-r-4 border-l-0" : "mr-auto text-left"}
+              ${msg.user_id === Number(userId) ? "ml-auto text-right border-r-4 border-l-0" : "mr-auto text-left"}
             `}>
-              <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: {msg.quoted_msg.message}
+              <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: 
+              
+
+              {msg.quoted_msg.msg_type === 1 && (
+                    <p className="text-white">
+                      {msg.quoted_msg.message!.length > 150
+                        ? `${msg.quoted_msg.message!.slice(0, 150)}...`
+                        : msg.quoted_msg.message!}
+                    </p>
+                  )}
+
+              {msg.quoted_msg.msg_type === 2 && (
+                <img
+                  src="/src/assets/audio.png"
+                  alt="audio"
+                  className="w-8 h-8 object-contain"
+                />
+              )}
+
+              {msg.quoted_msg.msg_type === 3 && (
+                <img
+                  src={msg.quoted_msg.message!}
+                  alt="quoted image"
+                  className="w-24 h-24 object-cover rounded"
+                />
+              )}
+
+
             </div>
           )}
 
@@ -648,22 +718,43 @@ const onLongPress = (e: any, msg_id: number | string) => {
             `}
           >
       
-            {/* Condizione per verificare se c'è un audio */}
-            {(msg.audio === null || msg.audio === undefined) ? (
-              <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
-                {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <i>Messaggio multimediale inviato</i>}
-              </span>
-            ) : (
-              <span className='ml-2'>
-                <audio controls style={{ display: 'inline' }}>
-                  <source src={`data:audio/mp3;base64,${msg.audio}`} type="audio/mp3" />
-                  Il tuo browser non supporta l'elemento audio.
-                </audio>
-              </span>
-            )}
+              {msg.msg_type === 1 && (
+                <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
+                  {convertLinksToAnchors(msg.message!)}
+                </span>
+              )}
+
+              {msg.msg_type === 2 && (
+                <span className="ml-2">
+                  <audio controls style={{ display: 'inline' }}>
+                    <source src={`data:audio/mp3;base64,${msg.message}`} type="audio/mp3" />
+                    Il tuo browser non supporta l'elemento audio.
+                  </audio>
+                </span>
+              )}
+
+              {msg.msg_type === 3 && (
+                <div className="mt-2">
+                  <img
+                    src={`${msg.message}`}
+                    alt="sent"
+                    className="relative z-20 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                    onClick={() => openImageModal(msg.message!)}
+                    onTouchEnd={() => {
+                      if (isScrolling) {
+                        return;
+                      }
+
+                      openImageModal(msg.message!) 
+                    
+                    }}
+                  />
+                </div>
+              )}
 
         </div>
           </div>
+        </div>
         </div>
       );
       
@@ -875,13 +966,32 @@ const onLongPress = (e: any, msg_id: number | string) => {
         {/* Bottone per i nuovi messaggi */}
         {showNewMessageBtn && (
         <button
-            className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
+            className="z-20 fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
             onClick={scrollToBottom}
         >
             ⬇️ New messages
         </button>
         )}
     </div>
+
+    {fullscreenImage && (
+  <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+    <div className="absolute top-4 right-4">
+      <button
+        onClick={closeImageModal}
+        className="text-white text-3xl font-bold hover:text-gray-300"
+      >
+        ✕
+      </button>
+    </div>
+    <img
+      src={fullscreenImage}
+      alt="Fullscreen"
+      className="max-w-full max-h-full object-contain rounded"
+    />
+  </div>
+)}
+
 
     {showToastMessage && (
         <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
@@ -891,7 +1001,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
     {showEmojis && (
         <div
-          className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-10 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
+          className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-20 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
 
         >
        <div className="w-full flex flex-wrap md:justify-center items-center no-select">
@@ -908,17 +1018,39 @@ const onLongPress = (e: any, msg_id: number | string) => {
         </div>
       )}
 
+    {isLoadingConverting && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="text-white text-xl font-bold flex items-center space-x-3">
+          <div className="w-8 h-8 border-4 border-t-4 border-white border-solid rounded-full animate-spin"></div>
+          <span>Converting audio...</span>
+        </div>
+      </div>
+    )}
       
 
         {/* Barra chat input - Sempre fissa in basso */}
       <div className="sticky bottom-0 bg-gray-800 p-2 z-10">
         {/* Input e bottone Invia */}
-        <div className="relative flex flex-col gap-2 mb-2">
+        <div className="relative flex flex-col gap-2">
         {/* Mostra il messaggio citato solo se esiste */}
         {(quotedMessage !== null) && (
           <div className="p-2 bg-gray-800 text-white rounded-md relative flex flex-col items-start">
           <span className="text-blue-400 font-bold">{quotedMessage.nickname}:</span>
-          <span className="ml-0 text-left">{quotedMessage.message}</span>
+          <span className="ml-0 text-left">
+
+            {(quotedMessage.msg_type == 1) && (
+              (quotedMessage.message!.length > 150) ? `${quotedMessage.message!.slice(0, 150)}...` : quotedMessage.message
+            )} 
+
+            {(quotedMessage.msg_type == 2) && (
+              <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+            )} 
+
+            {(quotedMessage.msg_type == 3) && (
+              <img src={quotedMessage.message!} alt="Image" className="w-12 h-12" />
+            )}
+
+          </span>
         
           {/* Pulsante per rimuovere la citazione */}
           <button
@@ -930,7 +1062,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
         </div>
         )}
 
-  <div className="relative flex items-center gap-2">
+  <div className="relative flex items-center gap-2 w-full max-w-screen-md mx-auto">
     {/* Modal delle emoticons */}
     <button
       className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
@@ -943,6 +1075,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
     </button>
 
     <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+
+    <CameraCapture onSendPhoto={sendPhotoMessage} />
+
+    <div className="relative flex-1 flex items-center transition-all duration-300">
 
     <textarea
       ref={inputRef}
@@ -958,15 +1094,21 @@ const onLongPress = (e: any, msg_id: number | string) => {
           sendMessage();
         }
       }}
-      className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
+      className={`w-full p-2 pr-12 bg-gray-700 border rounded text-white resize-none overflow-y-auto transition-all duration-300`}
       placeholder="Type a message..."
       rows={1}
       style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
     />
 
-    <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
-      <img src={send} alt="Invia" className="w-6 h-6" />
-    </button>
+        <button
+          onClick={sendMessage}
+          className={`absolute right-1 top-1/2 transform -translate-y-1/2 bg-blue-500 p-2 rounded h-8 w-8 flex items-center justify-center transition-opacity duration-300 ${
+            message.trim().length > 0 ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <img src={send} alt="Invia" className="w-6 h-6 rotate-[-45deg]" />
+        </button>
+        </div>
   </div>
 </div>
      

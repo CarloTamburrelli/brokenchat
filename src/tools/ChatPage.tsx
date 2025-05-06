@@ -21,6 +21,7 @@ import BannedUsersModal from './BannedUsersModal';
 import { isValidNickname } from '../utils/validations';
 import LoadingSpinner from './LoadingSpinner';
 import usePushNotifications from '../utils/usePushNotifications';
+import CameraCapture from './CameraCapture';
 
 
 
@@ -29,8 +30,8 @@ type MessageData = {
   nickname: string | null;
   message: string | null;
   alert_message: boolean;
+  msg_type: number;
   user_id: number | null;
-  audio?: string | null;
   quoted_msg: MessageData | null;
   delete_chat: boolean | null;
 };
@@ -96,6 +97,8 @@ function ChatPage() {
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
 
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
   const ffmpeg = new FFmpeg();
   const maxHeight = 150;
   let isScrolling = false;
@@ -134,6 +137,13 @@ function ChatPage() {
     setSelectedMessageId(null);
   };
 
+  const openImageModal = (src: string) => {
+    setFullscreenImage(src);
+  };
+  
+  const closeImageModal = () => {
+    setFullscreenImage(null);
+  };
 
   const addEmojiToMessage = (emoji: string, index: number) => {
     inputRef.current?.focus();
@@ -188,7 +198,7 @@ function ChatPage() {
           nickname: response_json.chat.nickname_admin,
           subscription: formatDate(response_json.chat.user_admin_subscription),
         })
-        
+
         setMessages(response_json.messages);
 
         if (socket.connected) {
@@ -215,9 +225,9 @@ function ChatPage() {
               message: newMessage.text,
               alert_message: false,
               user_id: newMessage.user_id,
-              audio: newMessage.audio || null, // Salviamo l'audio se presente
               quoted_msg: newMessage.quoted_msg || null,
               delete_chat: false,
+              msg_type: newMessage.msg_type
             },
           ]);
         });
@@ -263,7 +273,8 @@ function ChatPage() {
                   user_id: null,
                   audio: null,
                   quoted_msg: null,
-                  delete_chat: deleteChat
+                  delete_chat: deleteChat,
+                  msg_type: 0
                 }
               ]
             )
@@ -377,13 +388,13 @@ function ChatPage() {
         user_id: number | null; 
         nickname: string; 
         text: string; 
-        id: string; 
         quoted_msg?: any; // Permette quoted_msg opzionale
+        msg_type: number;
       } = { 
         user_id: userId, 
         nickname: nickname, 
-        text: message, 
-        id: generateUniqueId() 
+        text: message,
+        msg_type: 1,
       };
 
       if (quotedMessage != null) {
@@ -500,18 +511,16 @@ function ChatPage() {
     const newMessage: { 
       user_id: number | null; 
       nickname: string; 
-      text: string; 
-      id: string; 
-      audio: string;
+      text: string;
       alert_message: boolean;
+      msg_type: number;
       quoted_msg?: any; // Permette quoted_msg opzionale
     } = {
-      id: generateUniqueId(),
       user_id: userId,
       nickname: nickname,
-      text: '', // Nessun testo perché è un messaggio audio
-      audio: base64Audio, // L'audio codificato in Base64
+      text: base64Audio,
       alert_message: false,
+      msg_type: 2,
     };
 
     if (quotedMessage != null) {
@@ -521,6 +530,28 @@ function ChatPage() {
   
     socket.emit('message', chatId, newMessage, userId);
   };
+
+  const sendPhotoMessage = (base64Image: string) => {
+    const newMessage: {
+      user_id: number | null;
+      nickname: string;
+      text: string;
+      alert_message: boolean;
+      msg_type: number;
+    } = {
+      user_id: userId,
+      nickname: nickname,
+      text: base64Image,
+      alert_message: false,
+      msg_type: 3, // tipo immagine
+    };
+
+    socket.emit('message', chatId, newMessage, userId);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
+  };
+
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
     try {
@@ -746,17 +777,30 @@ function ChatPage() {
       const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
 
       return (
+        <div
+          key={msg.id}
+          className={`select-none w-full relative flex ${msg.user_id === userId ? "justify-end" : "justify-start"} ${isSameUserAsPrevious ? "pt-1" : "pt-3"}
+            ${selectedMessageId === msg.id ? "bg-gray-800" : ""}
+          `}
+        >
+          {/* Div invisibile per catturare long press sull'intera riga (solo se NON mio messaggio) */}
+          {msg.user_id !== userId && (
+            <div
+            className="absolute inset-0"
+          >
+            <div className="w-full h-full" {...longPressEvent(msg.id)} />
+          </div>
+          )}
         <div 
           key={msg.id} 
-          className={`px-2 relative flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
+          className={`px-2 flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
             ${msg.user_id === userId ? "ml-auto justify-end" : "mr-auto justify-start"}
             ${isSameUserAsPrevious ? "pt-1": "pt-3"}
             ${selectedMessageId === msg.id ? "bg-gray-800 no-select pointer-events-none" : "bg-transparent"}`}
-          {...longPressEvent(msg.id)}
         >
       
           {selectedMessageId === msg.id && (
-            <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-30" style={{ pointerEvents: "auto" }}>
+            <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg" style={{ pointerEvents: "auto" }}>
               <button className="text-sm hover:text-blue-400 px-2"
                onClick={(e) => {
                 e.stopPropagation();
@@ -840,10 +884,10 @@ function ChatPage() {
 
 
           {!isSameUserAsPrevious && (
-          <div className={`text-sm ${msg.user_id === userId ? "text-right" : "text-left"}`}>
+          <div className={`z-10 text-sm ${msg.user_id === userId ? "text-right" : "text-left"}`}>
             <strong
               onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null}
-              onTouchStart={() => msg.user_id ? onUserClicked(msg.user_id): null}
+              onTouchEnd={() => msg.user_id ? onUserClicked(msg.user_id): null}
               className={`cursor-pointer font-semibold font-mono z-10 no-select 
                 ${usersList.some(user => user.split("####")[1] === String(msg.user_id)) ? "text-blue-400" : "text-gray-400"}`}
               style={{ pointerEvents: "auto" }}
@@ -858,7 +902,34 @@ function ChatPage() {
               max-w-full
               ${msg.user_id === userId ? "ml-auto text-right border-r-4 border-l-0" : "mr-auto text-left"}
             `}>
-              <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: {msg.quoted_msg.message}
+              <strong className="text-blue-300">{msg.quoted_msg.nickname}</strong>: 
+              
+
+              {msg.quoted_msg.msg_type === 1 && (
+                    <p className="text-white">
+                      {msg.quoted_msg.message!.length > 150
+                        ? `${msg.quoted_msg.message!.slice(0, 150)}...`
+                        : msg.quoted_msg.message!}
+                    </p>
+                  )}
+
+              {msg.quoted_msg.msg_type === 2 && (
+                <img
+                  src="/src/assets/audio.png"
+                  alt="audio"
+                  className="w-8 h-8 object-contain"
+                />
+              )}
+
+              {msg.quoted_msg.msg_type === 3 && (
+                <img
+                  src={msg.quoted_msg.message!}
+                  alt="quoted image"
+                  className="w-24 h-24 object-cover rounded"
+                />
+              )}
+
+
             </div>
           )}
 
@@ -869,23 +940,43 @@ function ChatPage() {
               ${isSameUserAsNext ? "rounded-b-md" : "rounded-b-2xl"}
             `}
           >
-      
-            {/* Condizione per verificare se c'è un audio */}
-            {(msg.audio === null || msg.audio === undefined) ? (
-              <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
-                {msg.message !== '' ? convertLinksToAnchors(msg.message!) : <span><i>Multimedia sent </i>🎬</span>}
-              </span>
-            ) : (
-              <span className='ml-2'>
-                <audio controls style={{ display: 'inline' }}>
-                  <source src={`data:audio/mp3;base64,${msg.audio}`} type="audio/mp3" />
-                  Il tuo browser non supporta l'elemento audio.
-                </audio>
-              </span>
-            )}
 
-</div>
+              {msg.msg_type === 1 && (
+                <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
+                  {convertLinksToAnchors(msg.message!)}
+                </span>
+              )}
+
+              {msg.msg_type === 2 && (
+                <span className="ml-2">
+                  <audio controls style={{ display: 'inline' }}>
+                    <source src={`data:audio/mp3;base64,${msg.message}`} type="audio/mp3" />
+                    Il tuo browser non supporta l'elemento audio.
+                  </audio>
+                </span>
+              )}
+
+              {msg.msg_type === 3 && (
+                <div className="mt-2">
+                  <img
+                    src={`${msg.message}`}
+                    alt="sent"
+                    className="relative z-20 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                    onClick={() => openImageModal(msg.message!)}
+                    onTouchEnd={() => {
+                      if (isScrolling) {
+                        return;
+                      }
+
+                      openImageModal(msg.message!) 
+                    
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+        </div>
         </div>
       );
       
@@ -903,7 +994,7 @@ function ChatPage() {
 
       {showInfoChatModal && (
         <div  
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-30"
         onClick={() => setShowInfoChatModal(false)}
       >
         <div
@@ -1033,6 +1124,24 @@ function ChatPage() {
   onUserClicked={onUserClicked}
 />
 
+{fullscreenImage && (
+  <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+    <div className="absolute top-4 right-4">
+      <button
+        onClick={closeImageModal}
+        className="text-white text-3xl font-bold hover:text-gray-300"
+      >
+        ✕
+      </button>
+    </div>
+    <img
+      src={fullscreenImage}
+      alt="Fullscreen"
+      className="max-w-full max-h-full object-contain rounded"
+    />
+  </div>
+)}
+
 
 {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4">
@@ -1104,7 +1213,7 @@ function ChatPage() {
     {/* Bottone per i nuovi messaggi */}
     {showNewMessageBtn && (
       <button
-        className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
+        className="z-20 fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full shadow-md animate-bounce"
         onClick={scrollToBottom}
       >
         ⬇️ New messages
@@ -1120,7 +1229,7 @@ function ChatPage() {
 
       {showEmojis && (
         <div
-          className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-10 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
+          className="emoji-bar flex flex-wrap gap-2 mb-2 absolute left-0 right-0 z-20 p-2 bg-black bg-opacity-50 bottom-16 md:bottom-44"
 
         >
        <div className="w-full flex flex-wrap md:justify-center items-center no-select">
@@ -1141,12 +1250,25 @@ function ChatPage() {
       {/* Barra chat input - Sempre fissa in basso */}
       {(isChatLocked == false) && (<div className="sticky bottom-0 bg-gray-800 p-2 z-10">
         {/* Input e bottone Invia */}
-        <div className="relative flex flex-col gap-2 mb-2">
+        <div className="relative flex flex-col gap-2">
             {/* Mostra il messaggio citato solo se esiste */}
             {(quotedMessage !== null) && (
               <div className="p-2 bg-gray-800 text-white rounded-md relative flex flex-col items-start">
               <span className="text-blue-400 font-bold">{quotedMessage.nickname}:</span>
-              <span className="ml-0 text-left">{quotedMessage.message}</span>
+              <span className="ml-0 text-left">
+
+              {(quotedMessage.msg_type == 1) && (
+                (quotedMessage.message!.length > 150) ? `${quotedMessage.message!.slice(0, 150)}...` : quotedMessage.message
+              )} 
+
+              {(quotedMessage.msg_type == 2) && (
+                <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+              )} 
+
+              {(quotedMessage.msg_type == 3) && (
+                <img src={quotedMessage.message!} alt="Image" className="w-12 h-12" />
+              )}
+              </span>
             
               {/* Pulsante per rimuovere la citazione */}
               <button
@@ -1158,7 +1280,7 @@ function ChatPage() {
             </div>
             )}
 
-      <div className="relative flex items-center gap-2">
+      <div className="relative flex items-center gap-2 w-full max-w-screen-md mx-auto">
         {/* Modal delle emoticons */}
         <button
           className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
@@ -1171,6 +1293,10 @@ function ChatPage() {
         </button>
 
         <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+
+        <CameraCapture onSendPhoto={sendPhotoMessage} />
+
+        <div className="relative flex-1 flex items-center transition-all duration-300">
 
         <textarea
           ref={inputRef}
@@ -1186,15 +1312,22 @@ function ChatPage() {
               sendMessage();
             }
           }}
-          className="flex-1 p-2 bg-gray-700 border rounded text-white resize-none overflow-y-auto"
+          className={`w-full p-2 pr-12 bg-gray-700 border rounded text-white resize-none overflow-y-auto transition-all duration-300`}
           placeholder="Type a message..."
           rows={1}
           style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
         />
 
-        <button onClick={sendMessage} className="bg-blue-500 p-2 rounded">
-          <img src={send} alt="Invia" className="w-6 h-6" />
+        {/* Bottone posizionato assolutamente dentro il contenitore */}
+        <button
+          onClick={sendMessage}
+          className={`absolute right-1 top-1/2 transform -translate-y-1/2 bg-blue-500 p-2 rounded h-8 w-8 flex items-center justify-center transition-opacity duration-300 ${
+            message.trim().length > 0 ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <img src={send} alt="Invia" className="w-6 h-6 rotate-[-45deg]" />
         </button>
+  </div>
       </div>
     </div>
      
