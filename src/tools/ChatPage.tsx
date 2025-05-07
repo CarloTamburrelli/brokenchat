@@ -453,12 +453,19 @@ function ChatPage() {
 
   // Se la pagina è in caricamento
   if (loading) {
-    return BaseWaiting(<div>Loading...</div>);
+    return BaseWaiting(<LoadingSpinner />);
   }
 
   // Se c'è un errore nel recupero dei dati
   if (error && !showModal) {
-    return BaseWaiting(<div className='text-red-600 font-bold text-xl'>{error}</div>);
+    return BaseWaiting(<div><div className='text-red-600 font-bold text-xl'>{error}</div><div className="mt-4 text-center pt-10">
+      <Link
+        to="/"
+        className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+      >
+        ← Back to homepage
+      </Link>
+    </div></div>);
   }
 
   const chatContainerScrollHandler = () => {

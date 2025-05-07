@@ -5,6 +5,7 @@ import { getPosition } from "../utils/geolocation"; // Funzione che richiede la 
 const LocationContext = createContext<{
   lat: number | null;
   lon: number | null;
+  mode: number | null;
   error: string | null;
   requestLocation: () => void;
 } | null>(null);
@@ -13,6 +14,7 @@ const LocationContext = createContext<{
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lat, setLat] = useState<number | null>(null);
   const [lon, setLon] = useState<number | null>(null);
+  const [mode, setMode] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Funzione per ottenere la posizione
@@ -21,6 +23,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const position = await getPosition();
       setLat(position.latitude);
       setLon(position.longitude);
+      setMode(position.mode);
       setError(null); // Reset dell'errore se la posizione è ottenuta con successo
     } catch (err: any) {
       if (manual_check) {
@@ -42,7 +45,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LocationContext.Provider value={{ lat, lon, error, requestLocation }}>
+    <LocationContext.Provider value={{ lat, lon, mode, error, requestLocation }}>
       {children}
     </LocationContext.Provider>
   );

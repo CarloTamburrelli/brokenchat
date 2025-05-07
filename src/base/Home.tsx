@@ -38,7 +38,7 @@ export default function Home() {
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [nicknameTmp, setTmpNickname] = useState<string>('');
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
-  const { lat, lon, error } = useLocation(); // Recupera latitudine e longitudine
+  const { lat, lon, mode, error } = useLocation(); // Recupera latitudine e longitudine
   const prevFilter = useRef<string | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [welcomeStr, setWelcomeStr] = useState<string>('');
@@ -78,6 +78,8 @@ export default function Home() {
       return;
     }
 
+    //alert("vado avanti anche se lat e lon sono vuoti ma c'e'"+lat+"eheh pero errore: "+JSON.stringify(error))
+
     setLoading(true);
     const token = localStorage.getItem('authToken');  // Assicura che token sia una stringa
 
@@ -87,8 +89,8 @@ export default function Home() {
 
       const base_url = `/get-user?token=${token}`
     
-      const total_url = lat && lon
-        ? `${base_url}&lat=${lat}&lon=${lon}`
+      const total_url = lat && lon && mode
+        ? `${base_url}&lat=${lat}&lon=${lon}&mode=${mode}`
         : `${base_url}`;
 
         //console.log("sto per fare la richiesta getUserDetailsInit: ", lat, lon, error, total_url)

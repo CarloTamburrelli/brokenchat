@@ -26,7 +26,7 @@ function CreateChatForm() {
 
   const [locationName, setLocationName] = useState<string | null>(null);
 
-  const { lat, lon } = useLocation(); // Recupera latitudine e longitudine
+  const { lat, lon, error: error_location } = useLocation(); // Recupera latitudine e longitudine
   //const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -189,7 +189,11 @@ function CreateChatForm() {
 
           <div className="md:w-[400px] text-sm text-gray-500 text-center mt-2 font-mono">
             This chat will be visible starting from: <br/> <strong>
-            {(locationName != null) ? (`${locationName} 📍`) : ("Geolocation permissions not accepted")}
+            {(locationName != null) ? (`${locationName} 📍`) : 
+            
+            (error_location == null) ? (<div className="flex justify-center items-center h-full w-full">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-500" />
+          </div>) : ("Geolocation permissions not accepted")}
             </strong>
           </div>
 

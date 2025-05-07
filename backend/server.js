@@ -303,7 +303,6 @@ const getNearbyChats = async (token, lat, lon) => {
 };
 
 app.get("/check-webpush-subscription/:userId", async (req, res) => {
-  console.log("check-webpush-subscription....")
   try {
     const { userId } = req.params;
 
@@ -422,7 +421,9 @@ app.get('/am-i-registred', async (req, res) => {
 
 
 app.get('/get-user', async (req, res) => {
-  const { token, filter, lat, lon } = req.query;  // Prendi i parametri dalla query
+  const { token, filter, lat, lon, mode } = req.query;  // Prendi i parametri dalla query
+
+  //console.log("sto prendendo le chat...", filter, lat, lon, "Con modo: ", mode, "  Ok???")
 
   //const [lat, lon] = ["44.4974349", "11.3714015"];
 
@@ -448,7 +449,7 @@ app.get('/get-user', async (req, res) => {
 
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
-      `SELECT u.nickname, u.id
+      `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude
        FROM users u
        WHERE u.token = $1`,
       [token]
@@ -463,14 +464,19 @@ app.get('/get-user', async (req, res) => {
       nickname = userResult.rows[0].nickname;  // Ottieni il nickname dell'utente
       userId = userResult.rows[0].id;  // Ottieni il nickname dell'utente
 
+      const isValid = (v) => v !== null && v !== "0" && v !== 0;
+
       // Se l'utente fornisce latitudine e longitudine, aggiorna la sua posizione e ottieni le chat vicine
-      if (lat && lon && lat !== "0" && lon !== "0") {
+      if (isValid(lat) && isValid(lon)) {
         await pool.query(
           `UPDATE users SET latitude = $1, longitude = $2 WHERE token = $3`,
           [lat, lon, token]
         );
 
         nearbyChats = await getNearbyChats(token, lat, lon); // Ottieni chat limitrofe
+      } else if (isValid(user.last_latitude) && isValid(user.last_longitude)) {
+        // se risultano a null prendo le ultime lat e lon salvate a db
+        nearbyChats = await getNearbyChats(token, user.last_latitude, user.last_longitude);
       } else {
         // Se non fornisce latitudine e longitudine, recupera solo le chat popolari
         popularChats = await getPopularChats(token); // Funzione che restituisce chat popolari
@@ -705,7 +711,7 @@ app.get('/chat/:chatId', async (req, res) => {
 
     // Se non viene trovata la chat, rispondi con un errore
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Chat non trovata' });
+      return res.status(404).json({ message: 'Chat not found :(' });
     }
 
     // Restituisci i dati della chat
@@ -1587,8 +1593,7 @@ io.on('connection', (socket) => {
 
   socket.on("disconnect", async (reason) => {
 
-
-    console.log("MI SONO DISCONNESSO???", reason, "user id", socket.userId, socket.conversationId);
+    //console.log("MI SONO DISCONNESSO???", reason, "user id", socket.userId, socket.conversationId);
 
     if (socket.conversationId && socket.userId) {
       await redisClient.srem(`private_room:${socket.conversationId}`, socket.userId);
@@ -1600,7 +1605,7 @@ io.on('connection', (socket) => {
 
 
     if (!socket.chatId || !socket.nickname || !socket.userId) {
-      console.log("Dati utente mancanti, impossibile rimuovere da Redis.");
+      //console.log("Dati utente mancanti, impossibile rimuovere da Redis.");
       return;
     }
 
