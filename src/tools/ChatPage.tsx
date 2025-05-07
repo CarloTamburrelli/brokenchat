@@ -1287,55 +1287,67 @@ function ChatPage() {
             </div>
             )}
 
-      <div className="relative flex items-center gap-2 w-full max-w-screen-md mx-auto">
-        {/* Modal delle emoticons */}
-        <button
-          className={`text-white cursor-pointer rounded ${showEmojis ? 'bg-white bg-opacity-50' : ''}`}
-          onClick={() => {
-            inputRef.current?.focus();
-            setShowEmojis(!showEmojis);
-          }}
-        >
-          😊
-        </button>
+<div className="relative w-full max-w-screen-md mx-auto p-2 bg-gray-800 rounded-xl shadow-md flex items-center gap-2">
+  {/* Emoji */}
+  <button
+    className={`text-white text-xl rounded-full hover:bg-gray-600 transition ${
+      showEmojis ? 'bg-gray-700' : ''
+    }`}
+    onClick={() => {
+      inputRef.current?.focus();
+      setShowEmojis(!showEmojis);
+    }}
+  >
+    😊
+  </button>
 
-        <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+  {/* Input */}
+  <div className={`flex-1 relative flex items-center transition-all duration-300 ${
+    message.trim().length > 0 ? 'gap-0' : 'gap-2'
+  }`}>
+    <textarea
+      ref={inputRef}
+      value={message}
+      onChange={handleInputChange}
+      onFocus={() => setTimeout(() => {
+        handleDeselect();
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 500)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      }}
+      className={`w-full text-white placeholder-gray-400 px-4 py-2 pr-12 resize-none transition-all duration-300 bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+        message.trim().length > 0 ? 'rounded-md overflow-y-auto' : 'rounded-full overflow-hidden'
+      }`}
+      placeholder="Type a message..."
+      rows={1}
+      style={{ minHeight: '40px', maxHeight: `${maxHeight}px` }}
+    />
 
-        <CameraCapture onSendPhoto={sendPhotoMessage} />
-
-        <div className="relative flex-1 flex items-center transition-all duration-300">
-
-        <textarea
-          ref={inputRef}
-          value={message}
-          onChange={handleInputChange}
-          onFocus={() => setTimeout(() => {
-            handleDeselect();
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          }, 500)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-          className={`w-full p-2 pr-12 bg-gray-700 border rounded text-white resize-none overflow-y-auto transition-all duration-300`}
-          placeholder="Type a message..."
-          rows={1}
-          style={{ minHeight: "40px", maxHeight: `${maxHeight}px` }}
-        />
-
-        {/* Bottone posizionato assolutamente dentro il contenitore */}
-        <button
-          onClick={sendMessage}
-          className={`absolute right-1 top-1/2 transform -translate-y-1/2 bg-blue-500 p-2 rounded h-8 w-8 flex items-center justify-center transition-opacity duration-300 ${
-            message.trim().length > 0 ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <img src={send} alt="Invia" className="w-6 h-6 rotate-[-45deg]" />
-        </button>
+    {/* Send Button */}
+    <button
+      onClick={sendMessage}
+      className={`absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 p-1.5 rounded-full h-8 w-8 flex items-center justify-center transition-opacity duration-300 ${
+        message.trim().length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+    >
+      <img src={send} alt="Send" className="w-5 h-5 rotate-[-45deg]" />
+    </button>
   </div>
-      </div>
+
+  {/* Camera & Microphone (only if message is empty) */}
+  {message.trim().length === 0 && (
+    <div className="flex items-center gap-2">
+      <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
+      <CameraCapture onSendPhoto={sendPhotoMessage} />
+    </div>
+  )}
+</div>
+
+
     </div>
      
       </div>)}
