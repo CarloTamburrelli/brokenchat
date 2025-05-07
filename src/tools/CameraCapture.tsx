@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import send from '../assets/send.png';
+import cameraIcon from "../assets/camera.png"; 
 
 export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: string) => void }) {
 
@@ -79,12 +80,13 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
   };
 
   return (
-    <div className="flex flex-col items-center justify-center">
+    <>
       <button
         onClick={openGallery}
         title="Take or select a photo"
+        className="active:brightness-110 active:scale-125 transition duration-900 ease-in-out text-[23px]"
       >
-        📷
+        <img src={cameraIcon} alt="Upload a photo" className="w-8 h-7 cursor-pointer" />
       </button>
 
       <input
@@ -141,6 +143,6 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

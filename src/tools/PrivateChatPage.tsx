@@ -11,6 +11,7 @@ import { getPosition } from "../utils/geolocation";
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import CameraCapture from "./CameraCapture";
+import microphoneIcon from "../assets/audio.png";
 
 
 type User = {
@@ -691,7 +692,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
               {msg.quoted_msg.msg_type === 2 && (
                 <img
-                  src="/src/assets/audio.png"
+                  src={microphoneIcon}
                   alt="audio"
                   className="w-8 h-8 object-contain"
                 />
@@ -1042,7 +1043,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
             )} 
 
             {(quotedMessage.msg_type == 2) && (
-              <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+              <img src={microphoneIcon} alt="Audio" className="w-5 h-5" />
             )} 
 
             {(quotedMessage.msg_type == 3) && (

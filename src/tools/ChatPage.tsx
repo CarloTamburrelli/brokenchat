@@ -22,6 +22,7 @@ import { isValidNickname } from '../utils/validations';
 import LoadingSpinner from './LoadingSpinner';
 import usePushNotifications from '../utils/usePushNotifications';
 import CameraCapture from './CameraCapture';
+import microphoneIcon from "../assets/audio.png";
 
 
 
@@ -922,7 +923,7 @@ function ChatPage() {
 
               {msg.quoted_msg.msg_type === 2 && (
                 <img
-                  src="/src/assets/audio.png"
+                  src={microphoneIcon}
                   alt="audio"
                   className="w-8 h-8 object-contain"
                 />
@@ -1269,7 +1270,7 @@ function ChatPage() {
               )} 
 
               {(quotedMessage.msg_type == 2) && (
-                <img src="/src/assets/audio.png" alt="Audio" className="w-5 h-5" />
+                <img src={microphoneIcon} alt="Audio" className="w-5 h-5" />
               )} 
 
               {(quotedMessage.msg_type == 3) && (

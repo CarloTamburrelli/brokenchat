@@ -68,8 +68,10 @@ const AudioRecorderModal: React.FC<{ onAudioRecorded: (audioBlob: Blob) => void 
   return (
     <>
       {/* 🔵 Icona microfono sempre visibile */}
-      <button onClick={startRecording}>
-        <img src={microphoneIcon} alt="Microfono" className="w-7 h-6 cursor-pointer" />
+      <button onClick={startRecording}
+          className="active:brightness-110 active:scale-125 transition duration-900 ease-in-out"
+      >
+        <img src={microphoneIcon} alt="Microfono" className="w-8 h-7 cursor-pointer" />
       </button>
 
       {/* 🔴 Modal appare solo se `isOpen` */}
