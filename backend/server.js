@@ -149,8 +149,8 @@ app.post('/create-chat', async (req, res) => {
       // Genera un nuovo token
 
       const userResult = await pool.query(
-        'INSERT INTO users (nickname, token, subscription) VALUES ($1, $2, NOW()) RETURNING id',
-        [yourNickname, newToken] // role_type = 1 → Admin
+        'INSERT INTO users (nickname, token, subscription, latitude, longitude) VALUES ($1, $2, NOW(), $3, $4) RETURNING id',
+        [yourNickname, newToken, latitude, longitude] // role_type = 1 → Admin
       );
 
       userId = userResult.rows[0].id;
@@ -1305,9 +1305,7 @@ app.post('/create-conversation', async (req, res) => {
 
 
 app.post("/register-user", async (req, res) => {
-  const { nickname } = req.body;
-
-  
+  const { nickname, latitude, longitude } = req.body;
 
   try {
 
@@ -1333,8 +1331,8 @@ app.post("/register-user", async (req, res) => {
 
     // Inserisci l'utente nel database
     await pool.query(
-      "INSERT INTO users (nickname, token, subscription) VALUES ($1, $2, NOW()) RETURNING id, token",
-      [nickname, newToken]
+      "INSERT INTO users (nickname, token, subscription, latitude, longitude) VALUES ($1, $2, NOW(), $3, $4) RETURNING id, token",
+      [nickname, newToken, latitude, longitude]
     );
 
     res.status(200).json({ token: newToken });

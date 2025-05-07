@@ -511,7 +511,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
   const handleRequestLocation = async () => {
     try {
-      const position = await getPosition(); // chiama la tua funzione
+      const position = await getPosition();
   
       // Optional: chiudi la modale
       setShowGeoWarningModal(false);

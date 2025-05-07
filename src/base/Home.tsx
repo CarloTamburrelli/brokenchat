@@ -101,6 +101,12 @@ export default function Home() {
 
       if (response.nickname !== null) {
         setNickName(response.nickname)
+      } else {
+        //è un utente non registrato - imposto latitude e longitude before db
+        if (lat && lon) {
+          localStorage.setItem("latitude", lat.toString()); // Verranno recuperati nel momento della registrazione
+          localStorage.setItem("longitude", lon.toString()); 
+        }
       }
 
       if (response.userId !== null) {

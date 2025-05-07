@@ -435,10 +435,12 @@ function ChatPage() {
 
     try {
       setLoading(true);
+      const latitude = localStorage.getItem('latitude');
+      const longitude = localStorage.getItem('longitude');
       const response = await fetchWithPrefix(`/register-user?`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId, nickname }),
+        body: JSON.stringify({ chatId, nickname, latitude, longitude }),
       });
 
       localStorage.setItem("authToken", response.token); // Salva il nuovo token
