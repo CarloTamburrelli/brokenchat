@@ -108,7 +108,7 @@ const PrivateMessages = () => {
     <Link to="/" className="pointer-events-auto mr-4 text-2xl">
       <img alt="BrokenChat" src={Logo} className="h-8 block" />
     </Link>
-    <h2 className="text-lg font-semibold">Private Messages</h2>
+    <h2 className="text-lg font-semibold font-mono">Private Messages</h2>
   </div>
 
 

@@ -48,7 +48,7 @@ export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], 
     {/* Titolo della chat */}
     {headerName && (
       <h1 className={`font-bold text-red text-center text-lg sm:text-xl flex items-center gap-2 ml-4`}>
-        <span onClick={onOpenInfo} className="cursor-pointer pointer-events-auto">
+        <span onClick={onOpenInfo} className="cursor-pointer pointer-events-auto font-mono">
           {window.innerWidth < 640 ? setTitle(headerName) : headerName}
         </span>
       </h1>

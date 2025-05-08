@@ -6,6 +6,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const Redis = require('ioredis');
 const { sendPushNotification } = require('./web_push');
+const crypto = require('crypto');
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: process.env.REDIS_PORT || 6379
@@ -449,7 +450,8 @@ app.get('/get-user', async (req, res) => {
 
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
-      `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude
+      `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude,
+       CASE WHEN u.recovery_code IS NULL THEN 1 ELSE 0 END as recovery_code_is_null 
        FROM users u
        WHERE u.token = $1`,
       [token]
@@ -463,6 +465,7 @@ app.get('/get-user', async (req, res) => {
     if (userResult.rows.length !== 0) {
       nickname = userResult.rows[0].nickname;  // Ottieni il nickname dell'utente
       userId = userResult.rows[0].id;  // Ottieni il nickname dell'utente
+      recovery_code_is_null = userResult.rows[0].recovery_code_is_null;  // Ottieni il nickname dell'utente
 
       const isValid = (v) => v !== null && v !== "0" && v !== 0;
 
@@ -500,6 +503,7 @@ app.get('/get-user', async (req, res) => {
         nickname,
         nearbyChats,
         popularChats,
+        recovery_code_is_null,
         unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
       });
 
@@ -1011,6 +1015,63 @@ app.post('/user/update-location', async (req, res) => {
   } catch (err) {
     console.error('Error updating location:', err);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.post('/set-recovery-code', async (req, res) => {
+  const { recoveryCode, token } = req.body;  // Ottieni il codice di recupero dal corpo della richiesta
+
+  if (!recoveryCode || !token) {
+    return res.status(400).json({ message: 'Missing recovery code or token' });
+  }
+
+  try {
+    // Trasforma il codice di recupero in MD5
+    const hashedCode = crypto.createHash('md5').update(recoveryCode).digest('hex');
+
+    // Esegui la query per aggiornare il codice di recupero nel database
+    const result = await pool.query(
+      `UPDATE users SET recovery_code = $1 WHERE token = $2 RETURNING *`,
+      [hashedCode, token]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "User not found or code not updated" });
+    }
+
+    return res.status(200).json({});
+  } catch (err) {
+    console.error('Error setting recovery code:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/get-recovery-profile', async (req, res) => {
+  const { nickname, recovery_code } = req.body;
+
+  try {
+    // Hash MD5 del nickname e del codice di recupero
+    const hashedRecoveryCode = crypto.createHash('md5').update(recovery_code).digest('hex');
+
+    // Query per cercare l'utente
+    const result = await pool.query(
+      'SELECT token FROM users WHERE nickname = $1 AND recovery_code = $2',
+      [nickname, hashedRecoveryCode]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'No user found with this nickname and recovery code.' });
+    }
+
+    // Restituisci le informazioni dell'utente
+    const user = result.rows[0];
+    return res.json({
+      token: user.token,
+    });
+  } catch (err) {
+    console.error('Error retrieving profile:', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

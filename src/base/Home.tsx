@@ -5,6 +5,7 @@ import { fetchWithPrefix } from '../utils/api';
 import ChatList from '../base/ChatList';
 import { useLocation } from "../base/LocationContext"; // Usa il contesto della posizione
 import my_messages from '../assets/my_messages.png';
+import key from '../assets/key.png';
 import FilterMenu from '../tools/FilterMenu';
 import LocationRequestButton from "../tools/LocationRequestButton";
 import LoadingSpinner from '../tools/LoadingSpinner';
@@ -12,6 +13,7 @@ import create_chat from '../assets/create_chat.png';
 import { welcomeMessages } from '../utils/consts';
 import { socket } from "../utils/socket"; // Importa il socket
 import usePushNotifications from '../utils/usePushNotifications';
+import RecoveryCodeSetter from '../tools/RecoveryCodeSetter';
 
 type Chatroom = {
   id: string;
@@ -44,6 +46,7 @@ export default function Home() {
   const [welcomeStr, setWelcomeStr] = useState<string>('');
   const [headerHeight, setHeaderHeight] = useState(0);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
+  const [showRecoveryCodeModal, setShowRecoveryCodeModal] = useState<boolean>(false);
 
   usePushNotifications(userId!, true) //web notification
 
@@ -101,6 +104,9 @@ export default function Home() {
 
       if (response.nickname !== null) {
         setNickName(response.nickname)
+        if (response.recovery_code_is_null == 1) {
+          setShowRecoveryCodeModal(true)
+        }
       } else {
         //è un utente non registrato - imposto latitude e longitude before db
         if (lat && lon) {
@@ -270,7 +276,7 @@ export default function Home() {
       <div className='w-full my-2'>
       <div className="flex justify-center items-center w-full pl-2 pr-2">
   {/* Icona Messaggi Privati */}
-  {alreadyJoined && alreadyJoined !== "" && (
+  {alreadyJoined && alreadyJoined !== "" ? (
   <div className="md:flex flex-1 justify-start">
     <Link to="/private-messages" className="pointer-events-auto">
       <div className="relative w-8 h-8">
@@ -281,9 +287,17 @@ export default function Home() {
       </div>
     </Link>
   </div>
-  )}
+  ) : (
+  <div className="md:flex flex-1 justify-start">
+    <Link to="/recovery-profile" className="flex-1 md:flex-none md:w-auto flex cursor-pointer">
+        <img src={key} alt="Recovery Code" className="w-6 h-6" />
+        <span className="ml-2 text-black hidden md:flex flex-1 font-mono">Profile recovery</span>
+    </Link>
+  </div>
+  )
+  }
 
-  <div className={`flex ${alreadyJoined && alreadyJoined !== "" && "justify-center"} md:flex-1`}>
+  <div className={`flex justify-center md:flex-1`}>
     <Link to="/create-chat">
     <button className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
     {/* Immagine a sinistra del bottone */}
@@ -334,10 +348,16 @@ export default function Home() {
       </h1>
     </span>
     }
-      <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
-        <HeaderBrokenChat alreadyJoined={nickname} />
-      </div>
-      <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} 
+    {(showRecoveryCodeModal) && <RecoveryCodeSetter onSetted={() => {
+      setShowRecoveryCodeModal(false);
+      setShowToastMessage("Recovery code saved!");
+      setTimeout(() => setShowToastMessage(null), 3000);
+
+    }} />}
+    <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
+      <HeaderBrokenChat alreadyJoined={nickname} />
+    </div>
+    <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} 
   headerHeight={headerHeight} />
     </>
   )}
@@ -354,7 +374,7 @@ export default function Home() {
     >
       {/* Header con titolo e pulsante di chiusura */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-gray-800">Change your nickname</h2>
+        <h2 className="text-lg font-bold text-gray-800 font-mono">Change your nickname</h2>
         <button
           className="text-gray-500 hover:text-black text-2xl font-semibold"
           onClick={() => setShowNicknameModal(false)}
@@ -377,7 +397,7 @@ export default function Home() {
       <div className="flex mt-4 justify-center">
         <button
           onClick={handleChangeNickname}
-          className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+          className="bg-blue-500 text-white px-6 py-2 rounded-md font-mono hover:bg-blue-600"
         >
           Confirm
         </button>

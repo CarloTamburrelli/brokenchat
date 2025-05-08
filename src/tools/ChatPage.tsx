@@ -1024,7 +1024,7 @@ function ChatPage() {
         >
           {/* Header con titolo e pulsante di chiusura */}
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">{chatData!.name}</h2>
+            <h2 className="text-xl font-bold text-gray-900 font-mono">{chatData!.name}</h2>
             <button 
               onClick={() => setShowInfoChatModal(false)} 
               className="text-gray-500 hover:text-black text-2xl font-semibold"
@@ -1045,7 +1045,7 @@ function ChatPage() {
     onClick={() => {(admin!.id !== userId) && setProfileToShow(admin)}} // Funzione da eseguire al click
   >{admin?.nickname}
   </span></div>
-            <div><span className="font-semibold">Creata il:</span> {chatData!.created_at}</div>
+            <div><span className="font-semibold">Created on:</span> {chatData!.created_at}</div>
           </div>
         </div>
       </div>

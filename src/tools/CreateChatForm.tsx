@@ -160,7 +160,7 @@ function CreateChatForm() {
         <img src={Logo} />
       </Link>
       <form onSubmit={handleSubmit} className="mt-5 w-full p-2">
-        <div className="flex flex-col items-center gap-4 justify-center px-3">
+        <div className="flex flex-col items-center gap-4 justify-center px-3 font-mono">
         {isRegistred ? <span>Current Nickname: <span className="font-bold">{yourNickname}</span></span> : <input
             type="text"
             placeholder="Your Nickname"
