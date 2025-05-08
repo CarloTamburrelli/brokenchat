@@ -316,7 +316,18 @@ export default function Home() {
   ) : (
     <>
       {nickname ? (
-        <span><h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect inline-block">Hey, welcome back <span onClick={openNicknameModal} className='underline cursor-pointer'>{nickname}</span></h1></span>
+        <div className="flex items-center gap-2">
+        <h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect">
+          Hey, welcome back
+        </h1>
+        <span
+          onClick={openNicknameModal}
+          className="underline cursor-pointer text-1xl my-4 text-gray-500 font-mono"
+        >
+          {nickname}
+        </span>
+      </div>
+      
       ) : <span>
       <h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect block break-words whitespace-normal">
         {welcomeStr}

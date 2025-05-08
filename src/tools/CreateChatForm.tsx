@@ -169,7 +169,7 @@ function CreateChatForm() {
             onChange={(e) => setyourNickname(e.target.value)}
             className="p-2 border rounded w-full md:w-[400px]"
           />}
-          {!isRegistred && ((isAValidUsername) ? (<span className="text-green-500 font-mono">The Nickname is valid 😎</span>) : (yourNickname && yourNickname.length > 0) && (<span className="text-red-500 font-mono">Nickname not valid 😞<br />Minimum <b>6</b> characters and do not use special symbols, only numbers and _ is allowed</span>))}
+          {!isRegistred && ((isAValidUsername) ? (<span className="text-green-500 font-mono">The Nickname is valid 😎</span>) : (yourNickname && yourNickname.length > 0) && (<span className="text-red-500 font-mono">Nickname not valid 😞<br />Minimum <b>3</b> characters and do not use special symbols, only numbers and _ is allowed</span>))}
           <input
             maxLength={60}
             type="text"

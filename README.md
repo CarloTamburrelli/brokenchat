@@ -10,6 +10,9 @@
 
 
 **TODO**
+- aggiungere secret-code per recuperare un account ovunque:
+  - da fare quando si entra in una stanza
+  - da fare quando si crea una nuova stanza
 - mettere un log sull'output del server 
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:

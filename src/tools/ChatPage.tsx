@@ -23,6 +23,7 @@ import LoadingSpinner from './LoadingSpinner';
 import usePushNotifications from '../utils/usePushNotifications';
 import CameraCapture from './CameraCapture';
 import microphoneIcon from "../assets/audio.png";
+import { getPosition } from '../utils/geolocation';
 
 
 
@@ -435,8 +436,18 @@ function ChatPage() {
 
     try {
       setLoading(true);
-      const latitude = localStorage.getItem('latitude');
-      const longitude = localStorage.getItem('longitude');
+      let latitude = localStorage.getItem('latitude');
+      let longitude = localStorage.getItem('longitude');
+
+      if (latitude == null || longitude == null) {
+        //se l'utente ha fatto accesso direttamente a una stanza senza passare per la home
+        const position = await getPosition();
+        localStorage.setItem("latitude", position.latitude.toString()); // Verranno recuperati nel momento della registrazione
+        localStorage.setItem("longitude", position.longitude.toString()); 
+        latitude = position.latitude.toString();
+        longitude = position.longitude.toString();
+      }
+      
       const response = await fetchWithPrefix(`/register-user?`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

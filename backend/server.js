@@ -108,6 +108,11 @@ app.post('/create-chat', async (req, res) => {
   const { chatName, yourNickname, description, token, latitude, longitude } = req.body;
 
   try {
+
+    if ((chatName && chatName.length < 5) || (description && description.length < 10)) {
+      return res.status(400).json({ message: 'The chat name or description is not valid' });
+    }
+
     // Verifica se esiste già un utente con quel token
     const existingUserResult = await pool.query(
       'SELECT * FROM users WHERE token = $1',
@@ -155,11 +160,6 @@ app.post('/create-chat', async (req, res) => {
 
       userId = userResult.rows[0].id;
 
-    }
-
-
-    if ((chatName && chatName.length < 6) || (description && description.length < 10)) {
-      return res.status(400).json({ message: 'The chat name or description is not valid' });
     }
 
     // Salva la chat nel database PostgreSQL
@@ -766,7 +766,7 @@ app.get('/chat/:chatId', async (req, res) => {
     if (chatData.is_private && chatData.already_in === 0) {
       return res.status(403).json({ message: 'Accesso negato: questa chat è privata' });
     } else if (chatData.already_in === 0 && chatData.user_id > 0 ) {
-      //non e' privata ma e' registrato allora lo inserisco
+      //e' registrato ma non è mai entrato nella chat
       await pool.query(
         'INSERT INTO roles (user_id, role_type, chat_id, last_access) VALUES ($1, 3, $2, NOW())',
         [chatData.user_id, chatId] // role_type = 3 → Utente normale
