@@ -541,12 +541,12 @@ const onLongPress = (e: any, msg_id: number | string) => {
   const renderMessage = (msg: MessageData, index: number) => {
 
 
-    const convertLinksToAnchors = (text: string) => {
+    const convertLinksToAnchors = (text: string, is_my_message: boolean) => {
       const urlRegex = /(https?:\/\/[^\s]+)/g; // Regex per trovare i link
       return text.split(urlRegex).map((part, index) => {
         if (urlRegex.test(part)) {
           return (
-            <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" >
+            <a key={index} href={part} target="_blank" rel="noopener noreferrer" className={`${is_my_message ? 'text-white' : 'text-blue-500'} underline`} >
               {part}
             </a>
           );
@@ -719,8 +719,8 @@ const onLongPress = (e: any, msg_id: number | string) => {
           >
       
               {msg.msg_type === 1 && (
-                <span className={`no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
-                  {convertLinksToAnchors(msg.message!)}
+                <span className={`relative z-15 no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
+                  {convertLinksToAnchors(msg.message!, msg.user_id === authUser!.id)}
                 </span>
               )}
 

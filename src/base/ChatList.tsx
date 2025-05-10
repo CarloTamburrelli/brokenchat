@@ -39,7 +39,8 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
       <div className="w-full shadow-md">
         <div className="w-full">
           {Object.entries(nearbyChats).map(([groupId, chatList]) => (
-            <div key={groupId} className="w-full flex relative border-b-2 border-gray-400">
+            <div key={groupId} className="w-full flex relative">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
               {/* Div sinistro con la lista delle chat */}
               <div className="flex-1 flex flex-col space-y-4 ">
                   {chatList.map((chat: any) => (
@@ -50,10 +51,10 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
                           <div className={`text-lg font-semibold text-left break-words max-w-[80%] ${chat.role_type ? "visited" : ""}`}>
                             {chat.name}
                           </div>
-                          <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
+                          {(chat.popularity > 0) && (<div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
                             <img src={users} alt="Users" className="w-4 h-4 mr-1" />
                             {chat.popularity}
-                          </div>
+                          </div>)}
                         </div>
                     
                         {/* Descrizione sotto */}
@@ -80,7 +81,9 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
       <div className="w-full shadow-md">
         <div className="w-full">
           {popularChats.map((chat) => (
-            <div key={chat.id} className="w-full flex relative border-b-2 border-gray-300">
+            <div key={chat.id} className="w-full flex relative">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
+              
               {/* Contenitore della chat */}
               <div className="flex-1 flex flex-col space-y-4">
               <Link to={`/chat/${chat.id}`}>
@@ -90,10 +93,10 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
                     <div className={`text-lg font-semibold text-left break-words max-w-[80%] ${chat.role_type ? "visited" : ""}`}>
                       {chat.name}
                     </div>
-                    <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
+                    {(chat.popularity > 0) && (<div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
                       <img src={users} alt="Users" className="w-4 h-4 mr-1" />
                       {chat.popularity}
-                    </div>
+                    </div>)}
                   </div>
                   {/* Descrizione */}
                   <div className="mt-1 text-sm text-gray-700 text-left break-words">
@@ -112,7 +115,9 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
       <div className="w-full shadow-md">
         <div className="w-full">
           {myChats.map((chat) => (
-            <div key={chat.id} className="w-full flex relative border-b-2 border-gray-300">
+            <div key={chat.id} className="w-full flex relative">
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
+              
               {/* Contenitore della chat */}
               <div className="flex-1 flex flex-col space-y-4">
                 <Link to={`/chat/${chat.id}`}>
@@ -122,10 +127,10 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
                       <div className="text-lg font-semibold text-left visited break-words max-w-[80%]">
                         {chat.name}
                       </div>
-                      <div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
+                      {(chat.popularity > 0) && (<div className="flex items-center text-sm text-gray-600 flex-shrink-0 pl-2">
                         <img src={users} alt="Users" className="w-4 h-4 mr-1" />
                         {chat.popularity}
-                      </div>
+                      </div>) }
                     </div>
 
                     {chat.role_type && chat.last_access && (
