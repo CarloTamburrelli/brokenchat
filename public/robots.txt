@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /private-messages/
+Disallow: /recovery-profile/
+Allow: /
