@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './style/App.css';
 import CreateChatForm from './tools/CreateChatForm';
@@ -11,30 +10,6 @@ import RecoveryProfile from './tools/RecoveryProfile';
 
 function App() {
 
-  /*useEffect(() => {
-    if (!socket.connected) {
-      console.log("🔄 Tentativo di connessione al socket...");
-      socket.connect();
-      socket.on('connect', () => {
-        console.log("connesso!!");
-      });
-    }
-
-    return () => {
-      console.log("❌ Disconnessione del socket...");
-      socket.disconnect();
-    };
-  }, []);*/
-
-  const SitemapRedirect = () => {
-    useEffect(() => {
-      // Redirigi a https://api.broken.chat/sitemap.xml
-      window.location.href = 'https://api.broken.chat/sitemap.xml';
-    }, []);
-  
-    return null; // Questo componente non renderizza nulla
-  };
-
   return (
     <Router>
           <Routes>
@@ -45,7 +20,6 @@ function App() {
             <Route path="/private-messages/new/:userId" element={<PrivateChatPage />} />
             <Route path="/private-messages/:privateMessageId" element={<PrivateChatPage />} />
             <Route path="/recovery-profile" element={<RecoveryProfile />} />
-            <Route path="/sitemap.xml" element={<SitemapRedirect />} />
           </Routes>
     </Router>
   );
