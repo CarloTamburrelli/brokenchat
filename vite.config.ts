@@ -21,13 +21,6 @@ export default defineConfig({
       'broken.chat',
       'localhost',  // Puoi anche aggiungere localhost se necessario
     ],
-    proxy: {
-      '/sitemap.xml': {
-        target: 'https://api.broken.chat',
-        changeOrigin: true,
-        rewrite: (path) => path
-      }
-    }
   },
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg'],  // Aggiungi questa riga

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './style/App.css';
 import CreateChatForm from './tools/CreateChatForm';
@@ -25,6 +26,15 @@ function App() {
     };
   }, []);*/
 
+  const SitemapRedirect = () => {
+    useEffect(() => {
+      // Redirigi a https://api.broken.chat/sitemap.xml
+      window.location.href = 'https://api.broken.chat/sitemap.xml';
+    }, []);
+  
+    return null; // Questo componente non renderizza nulla
+  };
+
   return (
     <Router>
           <Routes>
@@ -35,6 +45,7 @@ function App() {
             <Route path="/private-messages/new/:userId" element={<PrivateChatPage />} />
             <Route path="/private-messages/:privateMessageId" element={<PrivateChatPage />} />
             <Route path="/recovery-profile" element={<RecoveryProfile />} />
+            <Route path="/sitemap.xml" element={<SitemapRedirect />} />
           </Routes>
     </Router>
   );
