@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  
   plugins: [
     react(),
   ],
@@ -19,7 +20,14 @@ export default defineConfig({
       'b55e-2-37-207-57.ngrok-free.app',
       'broken.chat',
       'localhost',  // Puoi anche aggiungere localhost se necessario
-    ]
+    ],
+    proxy: {
+      '/sitemap.xml': {
+        target: 'https://api.broken.chat',
+        changeOrigin: true,
+        rewrite: (path) => path
+      }
+    }
   },
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg'],  // Aggiungi questa riga

@@ -1437,6 +1437,58 @@ app.post("/update-nickname", async (req, res) => {
   }
 });
 
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id FROM chats WHERE is_private = false');
+    const baseUrl = 'https://broken.chat';
+
+    const staticUrls = [
+      {
+        loc: `${baseUrl}/`,
+        priority: '1.0',
+        changefreq: 'daily',
+      },
+      {
+        loc: `${baseUrl}/create-chat`,
+        priority: '0.8',
+        changefreq: 'weekly',
+      },
+    ];
+
+    const dynamicUrls = result.rows.map((chat) => ({
+      loc: `${baseUrl}/chat/${chat.id}`,
+      priority: '0.5',
+      changefreq: 'weekly',
+    }));
+
+    const allUrls = [...staticUrls, ...dynamicUrls];
+
+    const urlEntries = allUrls
+      .map(
+        ({ loc, priority, changefreq }) =>
+          `<url>
+  <loc>${loc}</loc>
+  <priority>${priority}</priority>
+  <changefreq>${changefreq}</changefreq>
+</url>`
+      )
+      .join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urlEntries}
+</urlset>`;
+
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error) {
+    console.error('Errore generazione sitemap:', error);
+    res.status(500).send('Errore generazione sitemap');
+  }
+});
+
+
+
 // Gestione della connessione WebSocket
 io.on('connection', (socket) => {
   // console.log('Un utente si è connesso');
