@@ -48,6 +48,10 @@ export default function Home() {
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
   const [showRecoveryCodeModal, setShowRecoveryCodeModal] = useState<boolean>(false);
 
+
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+
   usePushNotifications(userId!, true) //web notification
 
   const handleChangeNickname = async () => {
@@ -218,6 +222,16 @@ export default function Home() {
 
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeStr(welcomeMessages[randomIndex]);
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !(menuRef.current as any).contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    
     
   }, []);
 
@@ -320,10 +334,40 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center max-w-3xl mx-auto">
-  <img src={Logo} 
-  alt="Logo" 
-  className="w-40 h-[137px] sm:w-52 sm:h-[179px] md:w-48 md:h-[165px] lg:w-56 lg:h-[193px] xl:w-45 xl:h-[155px]"  />
+    <div className="relative flex flex-col justify-center items-center max-w-3xl mx-auto">
+      {/* 3 puntini in alto a sinistra dentro il contenitore */}
+      <div
+        ref={menuRef}
+        className="absolute top-3 left-2 z-50"
+      >
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex flex-col justify-center items-center w-6 h-6 space-y-0.5"
+          aria-label="Menu"
+        >
+          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
+          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
+          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
+        </button>
+
+        {open && (
+          <div className="absolute mt-2 w-44 bg-white border border-gray-200 rounded shadow-lg">
+            <a
+              href="/privacy-policy"
+              className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
+            >
+              Privacy & Cookie Policy
+            </a>
+          </div>
+        )}
+      </div>
+  <div className="flex items-center space-x-3">
+    <img
+      src={Logo}
+      alt="Logo"
+      className="w-40 h-[137px] sm:w-52 sm:h-[179px] md:w-48 md:h-[165px] lg:w-56 lg:h-[193px] xl:w-45 xl:h-[155px]"
+    />
+  </div>
   {loading ? ( 
     // Spinner mentre i dati vengono caricati
     <LoadingSpinner />
