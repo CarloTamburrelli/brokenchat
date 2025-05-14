@@ -202,8 +202,18 @@ function CreateChatForm() {
 
 
           <span className="md:w-[400px] text-gray-500 font-mono text-sm text-center mb-4">
-            By creating a chat, you confirm that you will respect others, avoid offensive language, and help keep Broken Chat a friendly and safe place for everyone ✨
+            By creating a chat, you confirm that you will respect others, avoid offensive language, and help keep Broken Chat a friendly and safe place for everyone ✨<br />
+            By proceeding, you also agree to our{' '}
+            <a
+              href="/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-700"
+            >
+              Privacy & Cookie Policy
+            </a>.
           </span>
+
 
         </div>
         

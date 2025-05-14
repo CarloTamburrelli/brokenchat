@@ -807,6 +807,40 @@ app.get('/chat/:chatId', async (req, res) => {
   }
 });
 
+app.put('/delete-account', async (req, res) => {
+  const { token, user_id } = req.body;
+
+  if (!token || !user_id) {
+    return res.status(400).json({ error: 'Missing token or user_id' });
+  }
+
+  try {
+    // Verifica che l’utente esista con quel token
+    const userCheck = await pool.query(
+      `SELECT id FROM users WHERE id = $1 AND token = $2`,
+      [user_id, token]
+    );
+
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found or invalid token' });
+    }
+
+    // Aggiorna la colonna con la data di richiesta cancellazione
+    await pool.query(
+      `UPDATE users
+       SET deletion_requested_at = NOW()
+       WHERE id = $1`,
+      [user_id]
+    );
+
+    res.status(200).json({ message: 'Account deletion requested successfully.' });
+  } catch (error) {
+    console.error('Error processing deletion request:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 app.put('/unban/:chatId/:userId', async (req, res) => {
   const { chatId, userId } = req.params;
   const { token } = req.query;
@@ -1066,6 +1100,14 @@ app.post('/get-recovery-profile', async (req, res) => {
 
     // Restituisci le informazioni dell'utente
     const user = result.rows[0];
+
+    await pool.query(
+      `UPDATE users
+       SET deletion_requested_at = NULL 
+       WHERE token = $1`,
+      [user.token]
+    );
+
     return res.json({
       token: user.token,
     });

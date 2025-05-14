@@ -1191,6 +1191,18 @@ function ChatPage() {
             <div className="text-green-500 font-mono pt-3 text-sm">The nickname is valid 😎</div>
           )}
 
+      <p className="text-xs text-center text-gray-500 mt-4">
+            By clicking <strong>JOIN</strong>, you agree to our{' '}
+            <a
+              href="/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-700"
+            >
+              Privacy & Cookie Policy
+            </a>.
+          </p>
+
           <div className="w-full flex justify-center mt-5">
           {!loading ? (<button
               onClick={handleRegisterUser}

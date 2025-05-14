@@ -54,6 +54,33 @@ export default function Home() {
 
   usePushNotifications(userId!, true) //web notification
 
+
+  const handleRemoveAccount = async () => {
+    const confirmed = window.confirm("Are you sure you want to delete your account?\nThis action is irreversible.\n\nAll information associated with your profile will be permanently removed 30 days after the deletion request.");
+    if (!confirmed) return;
+
+    if (!userId) return;
+  
+    try {
+
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      await fetchWithPrefix(`/delete-account`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, user_id: userId }),
+      });
+
+      localStorage.clear();
+
+      window.location.href = "/";
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong. Please try again.");
+    }
+  };
+
   const handleChangeNickname = async () => {
     try {
         const token = localStorage.getItem('authToken');
@@ -352,13 +379,26 @@ export default function Home() {
 
         {open && (
           <div className="absolute mt-2 w-44 bg-white border border-gray-200 rounded shadow-lg">
-            <a
-              href="/privacy-policy"
-              className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
-            >
-              Privacy & Cookie Policy
-            </a>
-          </div>
+          <a
+            href="/privacy-policy"
+            className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
+          >
+            Privacy & Cookie Policy
+          </a>
+        
+          {userId && (
+            <>
+              <hr className="border-t border-gray-200 my-1" />
+              <button
+                onClick={handleRemoveAccount}
+                className="w-full text-left px-4 py-2 text-sm font-mono text-gray-700 hover:bg-red-100"
+              >
+                Remove Account
+              </button>
+            </>
+          )}
+        </div>
+        
         )}
       </div>
   <div className="flex items-center space-x-3">
