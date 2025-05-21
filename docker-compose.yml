@@ -45,6 +45,15 @@ services:
       - redis
     networks:
       - chat-net
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: llama
+    ports:
+      - "8000:8080"
+    volumes:
+      - ./models:/models
+    command: ["-m", "/models/mistral-7b-instruct.gguf", "-t", "10", "-c", "8192", "--chat-template", "mistral"]
+    restart: unless-stopped
 
 volumes:
   postgres_data:
