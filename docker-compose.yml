@@ -52,7 +52,10 @@ services:
       - "8000:8080"
     volumes:
       - ./models:/models
-    command: ["-m", "/models/gemma-2b-fort.gguf", "-t", "4", "-c", "4096", "--chat-template", "gemma"]
+    command: ["-m", "/models/mistral-7b.gguf",
+          "-t", "4",
+      "-c", "4096",
+      "--chat-template", "mistral"]
     restart: unless-stopped
 
 volumes:
