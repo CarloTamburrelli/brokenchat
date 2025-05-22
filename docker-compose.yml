@@ -52,7 +52,7 @@ services:
       - "8000:8080"
     volumes:
       - ./models:/models
-    command: ["-m", "/models/mistral-7b-instruct.gguf", "-t", "10", "-c", "8192", "--chat-template", "mistral"]
+    command: ["-m", "/models/tinyllama.gguf", "-t", "4", "-c", "1024"]
     restart: unless-stopped
 
 volumes:
