@@ -7,10 +7,15 @@
  - cronjob automatic delete chats after 3 days
   *FOR APP*
     - invio notifiche FCM [app]
+ - mettere un log sull'output del server 
 
 
 **TODO**
-- mettere un log sull'output del server 
+
+- stai usando Groq, con un piano gratuito:
+  - bisognerebbe creare degli utenti bot (ragazze soprattutto) e farle rispondere nelle chat
+  - fai un file a parte con le varie personalità
+  - sistema storico
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 
