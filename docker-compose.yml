@@ -52,7 +52,7 @@ services:
       - "8000:8080"
     volumes:
       - ./models:/models
-    command: ["-m", "/models/phi-2.gguf", "-t", "4", "-c", "4096", "--chat-template", "chatml"]
+    command: ["-m", "/models/phi-2.gguf", "-t", "4", "-c", "4096", "--chat-template", "chatml", "--jinja"]
     restart: unless-stopped
 
 volumes:
