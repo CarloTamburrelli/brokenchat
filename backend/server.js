@@ -7,6 +7,23 @@ const jwt = require('jsonwebtoken');
 const Redis = require('ioredis');
 const { sendPushNotification } = require('./web_push');
 const crypto = require('crypto');
+const Groq = require('groq-sdk');
+const bots = require('./bots');
+
+const GROQ_KEYS = [
+  process.env.GROQ_API_KEY_1,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+];
+
+let currentKeyIndex = 0;
+
+function getNextGroqKey() {
+  const key = GROQ_KEYS[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length;
+  return key;
+}
+
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: process.env.REDIS_PORT || 6379
@@ -1571,6 +1588,76 @@ io.on('connection', (socket) => {
     }
   });
 
+
+  async function handleBotResponse(chatId, bot) {
+    try {
+
+      const recentMessagesRes = await pool.query(
+        `SELECT m.user_id, m.message, u.nickname, m.msg_type  
+        FROM messages as m
+        JOIN users as u ON u.id = m.user_id
+        WHERE m.chat_id = $1
+        ORDER BY m.id DESC
+        LIMIT 5`,
+        [chatId]
+      );
+    
+      const recentMessages = recentMessagesRes.rows.reverse(); // più vecchi prima
+    
+      const messagesForGroq = [
+        {
+          role: "system",
+          content:
+            `${bot.prompt}\n\n` +
+            `Ignora i messaggi che non ti coinvolgono direttamente. ` +
+            `Rispondi solo se vieni nominato o se hai davvero qualcosa da dire. ` +
+            `Non usare emoji. Non essere prolisso. Non comportarti mai da assistente. Rispondi come se fossi un partecipante reale in una chat pubblica, in modo breve, naturale e coerente con il tono del resto della chat.\n` +
+            `Se non hai nulla da dire, restituisci esattamente la stringa: ####`
+        },
+        ...recentMessages.map(msg => ({
+          role: msg.user_id == bot.id ? "assistant" : "user",
+          content: msg.user_id == bot.id ? (msg.msg_type == 1 ? msg.message : '') : `${msg.nickname || 'Utente'}: ${msg.msg_type == 1 ?  msg.message: ''}`
+        }))
+      ];
+
+      //console.log("messaggi recuperati", messagesForGroq)
+    
+      const apiKey = getNextGroqKey();
+      const client_groq = new Groq({ apiKey });
+    
+      const response = await client_groq.chat.completions.create({
+        model: 'gemma2-9b-it',
+        messages: messagesForGroq,
+      });
+    
+      const botReplyText = response.choices[0].message.content.replace(/\n{2,}/g, '\n').trim();
+    
+      //console.log("risposta bot", botReplyText)
+
+
+      if (botReplyText && !botReplyText.includes("####")) {
+        const result_bot_msg = await pool.query(
+          `INSERT INTO messages (chat_id, user_id, message, msg_type) VALUES ($1, $2, $3, 1) RETURNING id`,
+          [chatId, bot.id, botReplyText]
+        );
+    
+        const botMessage = {
+          id: result_bot_msg.rows[0].id,
+          user_id: bot.id,
+          text: botReplyText,
+          msg_type: 1,
+          nickname: bot.nickname
+        };
+    
+        //console.log("invio messaggio del bot in broadcast", botMessage);
+        io.to(chatId).emit('broadcast_messages', botMessage);
+      }
+
+    } catch (err) {
+      console.error('Errore in handleBotResponse:', err.message || err);
+    }
+  }
+
   socket.on('message', async (chatId, newMessage, userId) => {
     console.log("Sono nella socket message!");
     try {
@@ -1584,6 +1671,20 @@ io.on('connection', (socket) => {
       
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
+
+      const botIds = await redisClient.smembers(`bots_chat:${chatId}`);
+
+      if (botIds && botIds.length > 0) {
+
+        const selectedBotId = botIds[0]; // ne prendi solo uno
+        const bot = bots.find(b => b.id === selectedBotId);
+        if (bot) {
+          const delayMs = Math.floor(Math.random() * 4000) + 3000;
+          setTimeout(() => {
+            handleBotResponse(chatId, bot);
+          }, delayMs);
+        }
+      }
   
       // Controlla il numero di messaggi nella chat
       const result = await pool.query(
@@ -1602,7 +1703,7 @@ io.on('connection', (socket) => {
             ORDER BY id ASC
             LIMIT 1
           )`, [chatId]);
-        console.log(`Il primo messaggio è stato eliminato dalla chat ${chatId}`);
+        //console.log(`Il primo messaggio è stato eliminato dalla chat ${chatId}`);
       }
   
       console.log(`Messaggio inviato alla chat ${chatId}: ${newMessage}`);

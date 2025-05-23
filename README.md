@@ -17,6 +17,25 @@
   - fai un file a parte con le varie personalità
   - sistema storico
 
+
+QUERY (3):
+
+ALTER TABLE users
+ADD COLUMN is_bot BOOLEAN DEFAULT FALSE;
+
+
+INSERT INTO users (nickname, is_bot) values
+('Cristina', true),
+('Marta', true),
+('Lea', true),
+('Giulia', true),
+('Rik', true),
+('Emanuela', true),
+('Raffaella', true);
+
+ALTER TABLE roles ADD CONSTRAINT unique_user_chat UNIQUE (user_id, chat_id);
+
+
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 
 <div className="flex items-center p-4 bg-gray-800 text-white">
