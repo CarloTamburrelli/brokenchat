@@ -10,31 +10,6 @@
  - mettere un log sull'output del server 
 
 
-**TODO**
-
-- stai usando Groq, con un piano gratuito:
-  - bisognerebbe creare degli utenti bot (ragazze soprattutto) e farle rispondere nelle chat
-  - fai un file a parte con le varie personalità
-  - sistema storico
-
-
-QUERY (3):
-
-ALTER TABLE users
-ADD COLUMN is_bot BOOLEAN DEFAULT FALSE;
-
-
-INSERT INTO users (nickname, is_bot) values
-('Cristina', true),
-('Marta', true),
-('Lea', true),
-('Giulia', true),
-('Rik', true),
-('Emanuela', true),
-('Raffaella', true);
-
-ALTER TABLE roles ADD CONSTRAINT unique_user_chat UNIQUE (user_id, chat_id);
-
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 

@@ -1610,7 +1610,6 @@ io.on('connection', (socket) => {
           content:
             `${bot.prompt}\n\n` +
             `Ignora i messaggi che non ti coinvolgono direttamente. ` +
-            `Rispondi solo se vieni nominato o se hai davvero qualcosa da dire. ` +
             `Non usare emoji. Non essere prolisso. Non comportarti mai da assistente. Rispondi come se fossi un partecipante reale in una chat pubblica, in modo breve, naturale e coerente con il tono del resto della chat.\n` +
             `Se non hai nulla da dire, restituisci esattamente la stringa: ####`
         },
