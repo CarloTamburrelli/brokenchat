@@ -68,7 +68,7 @@ const TermsOfUse: React.FC = () => {
         <section>
           <h2 className="text-xl font-semibold mb-2 text-center">7. Contact</h2>
           <p className="text-left">
-            For any privacy-related questions, please contact:
+            For any questions, please contact:
             <br />
             <strong>Email:</strong>{' '}
             <img
