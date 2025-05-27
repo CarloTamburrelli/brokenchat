@@ -24,6 +24,14 @@ function getNextGroqKey() {
   return key;
 }
 
+function normalizeIp(ip) {
+  // Se è un IPv4-mapped IPv6 address, estrae solo la parte IPv4
+  if (ip.startsWith('::ffff:')) {
+    return ip.substring(7);
+  }
+  return ip;
+}
+
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: process.env.REDIS_PORT || 6379
@@ -58,6 +66,8 @@ const pool = new Pool({
 // Middleware per il parsing del JSON
 app.use(cors());
 app.use(express.json());
+app.set('trust proxy', true);
+
 
 redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
 redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
@@ -488,9 +498,11 @@ app.get('/get-user', async (req, res) => {
 
       // Se l'utente fornisce latitudine e longitudine, aggiorna la sua posizione e ottieni le chat vicine
       if (isValid(lat) && isValid(lon)) {
+        const ip = normalizeIp(req.ip);
+
         await pool.query(
-          `UPDATE users SET latitude = $1, longitude = $2 WHERE token = $3`,
-          [lat, lon, token]
+          `UPDATE users SET latitude = $1, longitude = $2, ip_address = $4 WHERE token = $3`,
+          [lat, lon, token, ip]
         );
 
         nearbyChats = await getNearbyChats(token, lat, lon); // Ottieni chat limitrofe
@@ -783,6 +795,8 @@ app.get('/chat/:chatId', async (req, res) => {
 
     }
 
+    const ip = normalizeIp(req.ip);
+
     // Se la chat è privata e l'utente non è già dentro, bloccalo
     if (chatData.is_private && chatData.already_in === 0) {
       return res.status(403).json({ message: 'Accesso negato: questa chat è privata' });
@@ -798,6 +812,13 @@ app.get('/chat/:chatId', async (req, res) => {
         [chatData.user_id, chatId]
       );
     }
+
+    //update with last IP ADDRESS :D
+
+    await pool.query(
+      `UPDATE users SET ip_address = $1 WHERE token = $2`,
+      [ip, token]
+    );
 
 
     const unreadResult = await pool.query(

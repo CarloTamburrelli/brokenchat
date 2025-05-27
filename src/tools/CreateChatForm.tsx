@@ -211,6 +211,13 @@ function CreateChatForm() {
               className="underline hover:text-gray-700"
             >
               Privacy & Cookie Policy
+            </a> and <a
+              href="/terms-of-use"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-700"
+            >
+              Terms of use
             </a>.
           </span>
 

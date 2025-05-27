@@ -385,6 +385,15 @@ export default function Home() {
           >
             Privacy & Cookie Policy
           </a>
+
+          <hr className="border-t border-gray-200 my-1" />
+
+          <a
+            href="/terms-of-use"
+            className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
+          >
+            Terms of use
+          </a>
         
           {userId && (
             <>

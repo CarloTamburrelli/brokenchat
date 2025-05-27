@@ -7,6 +7,7 @@ import Home from './base/Home';
 import PrivateMessages from './tools/PrivateMessages';
 import RecoveryProfile from './tools/RecoveryProfile';
 import PrivacyPolicy from './tools/PrivacyPolicy';
+import TermsOfUse from './tools/TermsOfUse';
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
             <Route path="/private-messages/:privateMessageId" element={<PrivateChatPage />} />
             <Route path="/recovery-profile" element={<RecoveryProfile />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-use" element={<TermsOfUse />} />
           </Routes>
     </Router>
   );
