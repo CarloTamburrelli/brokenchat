@@ -10,6 +10,15 @@
  - mettere un log sull'output del server 
 
 
+QUERY:
+
+CREATE TABLE feedbacks (
+  id SERIAL PRIMARY KEY,
+  user_id int4 NOT NULL,
+  comment TEXT NOT NULL
+);
+
+
 
 mi piacciono i colori bg-gray-800 e bg-gray-700:
 

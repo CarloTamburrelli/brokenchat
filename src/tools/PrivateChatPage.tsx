@@ -31,6 +31,7 @@ type MessageData = {
     user_id: number | null;
     quoted_msg: MessageData | null;
     msg_type: number;
+    date: string | null;
   };
 
 const PrivateChatPage = () => {
@@ -118,6 +119,7 @@ const PrivateChatPage = () => {
             alert_message: false,
             user_id: newMessage.user_id,
             msg_type: newMessage.msg_type,
+            date: newMessage.created_at,
             quoted_msg: newMessage.quoted_msg || null,
         },
         ]);
@@ -567,6 +569,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
       const isSameUserAsPrevious = index > 0 && messages[index - 1].user_id === msg.user_id;
       const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
+      const isLastMessage = index === messages.length - 1;
 
       return (
         <div
@@ -749,6 +752,17 @@ const onLongPress = (e: any, msg_id: number | string) => {
                     
                     }}
                   />
+                </div>
+              )}
+              {isLastMessage && msg.date && (
+                <div className={`text-xs  mt-1 ${msg.user_id === authUser!.id ? "text-right text-gray-200" : "text-left text-gray-400"}`}>
+                  {new Date(msg.date).toLocaleString('en-US', {
+                    month: 'long',   // "May"
+                    day: 'numeric',   // "22"
+                    hour: '2-digit',  // "06 PM"
+                    minute: '2-digit',
+                    hour12: false     // disattiva AM/PM
+                  })}
                 </div>
               )}
 

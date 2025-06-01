@@ -478,8 +478,10 @@ app.get('/get-user', async (req, res) => {
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
       `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude,
-       CASE WHEN u.recovery_code IS NULL THEN 1 ELSE 0 END as recovery_code_is_null 
+       CASE WHEN u.recovery_code IS NULL THEN 1 ELSE 0 END as recovery_code_is_null,
+       CASE WHEN f.id IS NULL THEN 1 ELSE 0 END as feedback_is_null 
        FROM users u
+       LEFT JOIN feedbacks as f ON f.user_id = u.id
        WHERE u.token = $1`,
       [token]
     );
@@ -493,6 +495,7 @@ app.get('/get-user', async (req, res) => {
       nickname = userResult.rows[0].nickname;  // Ottieni il nickname dell'utente
       userId = userResult.rows[0].id;  // Ottieni il nickname dell'utente
       recovery_code_is_null = userResult.rows[0].recovery_code_is_null;  // Ottieni il nickname dell'utente
+      feedback_is_null = userResult.rows[0].feedback_is_null;  // Ottieni il nickname dell'utente
 
       const isValid = (v) => v !== null && v !== "0" && v !== 0;
 
@@ -533,6 +536,7 @@ app.get('/get-user', async (req, res) => {
         nearbyChats,
         popularChats,
         recovery_code_is_null,
+        feedback_is_null,
         unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
       });
 
@@ -761,6 +765,7 @@ app.get('/chat/:chatId', async (req, res) => {
         m.message,
         m.user_id,
         m.msg_type,
+        m.created_at as date,
         CASE 
           WHEN q.id IS NOT NULL THEN json_build_object(
             'id', q.id,
@@ -1119,6 +1124,31 @@ app.post('/set-recovery-code', async (req, res) => {
   }
 });
 
+app.post('/feedback', async (req, res) => {
+  const { token, comment } = req.body;
+
+  if (!token || !comment) {
+    return res.status(400).json({ message: 'Missing token or comment' });
+  }
+
+  try {
+    await pool.query(
+      `
+      INSERT INTO feedbacks (user_id, comment)
+      SELECT id, $2
+      FROM users
+      WHERE token = $1
+      `,
+      [token, comment]
+    );
+
+    res.status(200).json({});
+  } catch (error) {
+    console.error('Error saving feedback:', error);
+    res.status(500).json({ message: 'Failed to save feedback' });
+  }
+});
+
 app.post('/get-recovery-profile', async (req, res) => {
   const { nickname, recovery_code } = req.body;
 
@@ -1187,7 +1217,8 @@ app.get("/conversation/:conversationId", async (req, res) => {
             'message', q.message
           )
           ELSE NULL
-        END AS quoted_msg 
+        END AS quoted_msg,
+        m.created_at as date 
        FROM messages as m
        JOIN users as u ON u.id = m.user_id 
        LEFT JOIN messages AS q ON q.id = m.quoted_message_id 
@@ -1688,6 +1719,7 @@ io.on('connection', (socket) => {
       );
 
       newMessage.id = result_message.rows[0].id;
+      newMessage.created_at = new Date();
       
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
@@ -1836,6 +1868,7 @@ io.on('connection', (socket) => {
 
       }
 
+      newMessage.created_at = new Date();
       
       io.to(socket.conversationId).emit('broadcast_private_messages', newMessage);
   

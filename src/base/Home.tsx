@@ -14,6 +14,7 @@ import { welcomeMessages } from '../utils/consts';
 import { socket } from "../utils/socket"; // Importa il socket
 import usePushNotifications from '../utils/usePushNotifications';
 import RecoveryCodeSetter from '../tools/RecoveryCodeSetter';
+import FeedbackModal from '../tools/FeedbackModal';
 
 type Chatroom = {
   id: string;
@@ -47,6 +48,7 @@ export default function Home() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
   const [showRecoveryCodeModal, setShowRecoveryCodeModal] = useState<boolean>(false);
+  const [showFeedback, setShowFeedback] = useState<boolean>(false);
 
 
   const [open, setOpen] = useState(false);
@@ -137,6 +139,9 @@ export default function Home() {
         setNickName(response.nickname)
         if (response.recovery_code_is_null == 1) {
           setShowRecoveryCodeModal(true)
+        }
+        if (response.feedback_is_null == 1) {
+          setShowFeedback(true)
         }
       } else {
         //è un utente non registrato - imposto latitude e longitude before db
@@ -446,6 +451,12 @@ export default function Home() {
       setShowToastMessage("Recovery code saved!");
       setTimeout(() => setShowToastMessage(null), 3000);
 
+    }} />}
+
+    {(showFeedback) && <FeedbackModal onSetted={() => {
+      setShowFeedback(false);
+      setShowToastMessage("Feedback sent, thank you! ❤️");
+      setTimeout(() => setShowToastMessage(null), 3000);
     }} />}
     <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
       <HeaderBrokenChat alreadyJoined={nickname} />

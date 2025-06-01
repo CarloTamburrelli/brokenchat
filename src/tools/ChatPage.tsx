@@ -33,6 +33,7 @@ type MessageData = {
   message: string | null;
   alert_message: boolean;
   msg_type: number;
+  date: string | null;
   user_id: number | null;
   quoted_msg: MessageData | null;
   delete_chat: boolean | null;
@@ -225,6 +226,7 @@ function ChatPage() {
               id: newMessage.id,
               nickname: newMessage.nickname,
               message: newMessage.text,
+              date: newMessage.created_at,
               alert_message: false,
               user_id: newMessage.user_id,
               quoted_msg: newMessage.quoted_msg || null,
@@ -272,6 +274,7 @@ function ChatPage() {
                   nickname: null, 
                   message: message,
                   alert_message: true,
+                  date: null,
                   user_id: null,
                   audio: null,
                   quoted_msg: null,
@@ -796,6 +799,7 @@ function ChatPage() {
 
       const isSameUserAsPrevious = index > 0 && messages[index - 1].user_id === msg.user_id;
       const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
+      const isLastMessage = index === messages.length - 1;
 
       return (
         <div
@@ -993,6 +997,17 @@ function ChatPage() {
                     
                     }}
                   />
+                </div>
+              )}
+              {isLastMessage && msg.date && (
+                <div className={`text-xs  mt-1 ${msg.user_id === userId ? "text-right text-gray-200" : "text-left text-gray-400"}`}>
+                  {new Date(msg.date).toLocaleString('en-US', {
+                    month: 'long',   // "May"
+                    day: 'numeric',   // "22"
+                    hour: '2-digit',  // "06 PM"
+                    minute: '2-digit',
+                    hour12: false     // disattiva AM/PM
+                  })}
                 </div>
               )}
             </div>
