@@ -517,7 +517,7 @@ function ChatPage() {
     }
 
     try {
-      const response_json = await fetchWithPrefix(`/user/${userIdToShow}`);
+      const response_json = await fetchWithPrefix(`/users/${userIdToShow}`);
       //console.log("UTENTE RECUPERATO", response_json); // Qui trovi i dati dell'utente
       setProfileToShow({
         id: userIdToShow,

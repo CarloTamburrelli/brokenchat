@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import Logo from '../assets/logo.png';
+import { formatDate } from '../utils/formatDate';
 import { fetchWithPrefix } from '../utils/api';
 import ChatList from '../base/ChatList';
 import { useLocation } from "../base/LocationContext"; // Usa il contesto della posizione
@@ -15,6 +16,9 @@ import { socket } from "../utils/socket"; // Importa il socket
 import usePushNotifications from '../utils/usePushNotifications';
 import RecoveryCodeSetter from '../tools/RecoveryCodeSetter';
 import FeedbackModal from '../tools/FeedbackModal';
+import user3 from '../assets/user3.png';
+import OnlineUsersModal from '../tools/OnlineUsersModal';
+import chat_now from '../assets/chat_now.png';
 
 type Chatroom = {
   id: string;
@@ -24,6 +28,12 @@ type Chatroom = {
   role_type: number;
   last_access: string;
 };
+
+interface User {
+  id: number;
+  nickname: string;
+  subscription?: string;
+}
 
 type GroupedChats = Record<number, Chatroom[]>;
 
@@ -49,6 +59,9 @@ export default function Home() {
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
   const [showRecoveryCodeModal, setShowRecoveryCodeModal] = useState<boolean>(false);
   const [showFeedback, setShowFeedback] = useState<boolean>(false);
+  const [totalUsersIdOnline, setTotalUsersIdOnline] = useState<number[]>([]); 
+  const [showModalUsersOnline, setShowModalUsersOnline] = useState(false);
+  const [profileToShow, setProfileToShow] = useState<User | null>(null);
 
 
   const [open, setOpen] = useState(false);
@@ -108,20 +121,33 @@ export default function Home() {
     setShowNicknameModal(true);
   }
 
+  const onUserClicked = async (user: User) => {
+      setShowModalUsersOnline(false)
+  
+      if (!user) {
+        return;
+      }
+  
+      setProfileToShow({
+        id: user.id,
+        nickname: user.nickname,
+        subscription: formatDate(user.subscription!),
+      })
+      
+  }
+
   const getUserDetailsInit = async () => {
 
     if (lat === null && lon === null && error === null) {
       return;
     }
 
-    //alert("vado avanti anche se lat e lon sono vuoti ma c'e'"+lat+"eheh pero errore: "+JSON.stringify(error))
 
     setLoading(true);
     const token = localStorage.getItem('authToken');  // Assicura che token sia una stringa
 
     try {
-    // Invia la richiesta con o senza latitudine/longitudine
-
+      // Invia la richiesta con o senza latitudine/longitudine
 
       const base_url = `/get-user?token=${token}`
     
@@ -142,6 +168,10 @@ export default function Home() {
         }
         if (response.feedback_is_null == 1) {
           setShowFeedback(true)
+        }
+        if (response.totalUsersOnline && response.totalUsersOnline.length > 0) {
+          console.log("Total users online: ", response.totalUsersOnline)
+          setTotalUsersIdOnline(response.totalUsersOnline); 
         }
       } else {
         //è un utente non registrato - imposto latitude e longitude before db
@@ -415,6 +445,17 @@ export default function Home() {
         
         )}
       </div>
+      <div
+        className="absolute top-3 right-2 z-50"
+      >
+        {(totalUsersIdOnline && totalUsersIdOnline.length > 0) && (<div onClick={() => setShowModalUsersOnline(true)} className="cursor-pointer flex items-center space-x-1 bg-gray-700 rounded-full px-2 py-1">
+          <img src={user3} alt="Users Icon" className="w-5 h-5" />
+          <span onClick={() => setShowModalUsersOnline(true)} className="text-white text-sm font-semibold flex items-center justify-center min-w-[20px]">
+            {totalUsersIdOnline.length}
+          </span>
+        </div>)}
+      </div>
+
   <div className="flex items-center space-x-3">
     <img
       src={Logo}
@@ -465,6 +506,55 @@ export default function Home() {
   headerHeight={headerHeight} />
     </>
   )}
+
+{showModalUsersOnline && (
+      <OnlineUsersModal
+        userIds={totalUsersIdOnline}
+        onClose={() => setShowModalUsersOnline(false)}
+        onUserClicked={onUserClicked}
+      />
+    )}
+
+
+
+{profileToShow && (
+        <div
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-30"
+        onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
+      >
+        <div
+          className="bg-white p-5 rounded-lg shadow-lg w-96 relative text-left"
+          onClick={(e) => e.stopPropagation()} // Impedisce la chiusura se clicchi dentro la modal
+        >
+          {/* Header con titolo e pulsante di chiusura */}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">{profileToShow?.nickname}'s profile</h2>
+            <button
+              onClick={() => setProfileToShow(null)}
+              className="text-gray-500 hover:text-black text-2xl font-semibold"
+            >
+              ✕
+            </button>
+          </div>
+      
+          {/* Dettagli Profilo */}
+          <div className="text-sm text-gray-800 space-y-2">
+            <div><span className="font-semibold">Registered on:</span> {profileToShow.subscription || "Data non disponibile"}</div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-center space-x-4">
+      
+          
+            <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
+              <Link to={`/private-messages/new/${profileToShow.id}`} className="flex items-center space-x-2">
+                <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
+                <span>Private message</span>
+              </Link>
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
 
 
 {showNicknameModal && (

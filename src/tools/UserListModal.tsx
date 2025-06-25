@@ -34,7 +34,7 @@ interface UserListModalProps {
       >
         {/* Header con titolo e pulsante di chiusura */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-800 font-mono">Connected users</h2>
+          <h2 className="text-lg font-bold text-gray-800 font-mono">Online users</h2>
           <button
             className="text-gray-500 hover:text-black text-2xl font-semibold"
             onClick={handleClose}

@@ -9,6 +9,7 @@ const { sendPushNotification } = require('./web_push');
 const crypto = require('crypto');
 const Groq = require('groq-sdk');
 const bots = require('./bots');
+require('./cronjobs/cleaner.js');
 
 const GROQ_KEYS = [
   process.env.GROQ_API_KEY_1,
@@ -529,6 +530,15 @@ app.get('/get-user', async (req, res) => {
         [userId]
       );
 
+      let totalUsersOnline = await redisClient.smembers('online');
+
+      const index = totalUsersOnline.indexOf(String(userId));
+      if (index !== -1) {
+        totalUsersOnline.splice(index, 1);
+      }
+
+      console.log("rieccoci e volevo rimuovere="+userId, totalUsersOnline, index)
+
 
       return res.status(200).json({
         userId,
@@ -537,7 +547,8 @@ app.get('/get-user', async (req, res) => {
         popularChats,
         recovery_code_is_null,
         feedback_is_null,
-        unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10)
+        unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10),
+        totalUsersOnline
       });
 
     } else {
@@ -609,7 +620,29 @@ const getPopularChats = async (token) => {
   return popularChats;
 };
 
-app.get('/user/:userId', async (req, res) => {
+app.post('/users/get-by-id', async (req, res) => {
+  const { userIds } = req.body;
+
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ message: 'userIds deve essere un array non vuoto' });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT id, nickname, subscription FROM users WHERE id = ANY($1)',
+      [userIds]
+    );
+
+    const users = result.rows;
+
+    res.status(200).json({ users });
+  } catch (error) {
+    console.error('Errore nel recupero della lista degli utenti', error);
+    res.status(500).json({ message: 'Errore nel recupero della lista degli utenti' });
+  }
+});
+
+app.get('/users/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -1606,6 +1639,7 @@ io.on('connection', (socket) => {
 
   socket.on('join-home', async (user_id) => {
     socket.join(`user:${user_id}`);
+    socket.userId = user_id;
     await redisClient.sadd('online', user_id);
   });
 
