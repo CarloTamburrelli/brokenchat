@@ -5,8 +5,6 @@
 
 Geolocalized chat system that finds the closest chats in your area.
 
-FARE MODAL CON LA LISTA DEGLI ID E POI RECUPERARE I LORO NOMI in maniera intelligente e fare la modal
-
 **FUTURE TODO**
   *FOR APP*
     - invio notifiche FCM [app]
