@@ -24,6 +24,7 @@ import usePushNotifications from '../utils/usePushNotifications';
 import CameraCapture from './CameraCapture';
 import microphoneIcon from "../assets/audio.png";
 import { getPosition } from '../utils/geolocation';
+import { generateColorFromId } from '../utils/generateColorFromId';
 
 
 
@@ -800,6 +801,7 @@ function ChatPage() {
       const isSameUserAsPrevious = index > 0 && messages[index - 1].user_id === msg.user_id;
       const isSameUserAsNext = index < messages.length - 1 && messages[index + 1].user_id === msg.user_id;
       const isLastMessage = index === messages.length - 1;
+      const userColor = generateColorFromId(msg.user_id!) // format: #fffff
 
       return (
         <div
@@ -913,9 +915,12 @@ function ChatPage() {
             <strong
               onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null}
               onTouchEnd={() => msg.user_id ? onUserClicked(msg.user_id): null}
-              className={`cursor-pointer font-semibold font-mono z-10 no-select 
-                ${usersList.some(user => user.split("####")[1] === String(msg.user_id)) ? "text-blue-400" : "text-gray-400"}`}
-              style={{ pointerEvents: "auto" }}
+              className={"cursor-pointer font-semibold font-mono z-10 no-select"}
+              style={{ pointerEvents: "auto",
+                color: usersList.some(user => user.split("####")[1] === String(msg.user_id))
+      ? '#60a5fa'
+      : userColor,
+               }}
             >
               {msg.user_id === userId ? "You" : msg.nickname} {(msg.user_id == admin!.id) && "👑"}
             </strong>
