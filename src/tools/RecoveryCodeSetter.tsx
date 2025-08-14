@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { fetchWithPrefix } from '../utils/api';
+import keyIcon from "../assets/key.png"; 
 
 interface RecoveryCodeSetterProps {
   onSetted: () => void; // Aggiungi la prop onSetted
@@ -40,10 +41,10 @@ const RecoveryCodeSetter: React.FC<RecoveryCodeSetterProps> = ({ onSetted }) => 
   return (
     <>
       <span
-        className="text-orange-500 font-mono underline cursor-pointer my-2"
+        className="cursor-pointer"
         onClick={() => setShowModal(true)}
       >
-        Set recovery code
+        <img src={keyIcon} alt="Recovery code" className="w-6 h-6 cursor-pointer my-2" />
       </span>
 
       {showModal && (

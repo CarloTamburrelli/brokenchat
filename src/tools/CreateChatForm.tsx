@@ -157,7 +157,7 @@ function CreateChatForm() {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       <Link to="/" className="flex justify-center items-center">
-        <img src={Logo} />
+        <img src={Logo} className="w-32 sm:w-40 md:w-44 lg:w-48 xl:w-[170px] h-auto"  />
       </Link>
       <form onSubmit={handleSubmit} className="mt-5 w-full p-2">
         <div className="flex flex-col items-center gap-4 justify-center px-3 font-mono">

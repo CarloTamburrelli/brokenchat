@@ -10,7 +10,6 @@ import key from '../assets/key.png';
 import FilterMenu from '../tools/FilterMenu';
 import LocationRequestButton from "../tools/LocationRequestButton";
 import LoadingSpinner from '../tools/LoadingSpinner';
-import create_chat from '../assets/create_chat.png';
 import { welcomeMessages } from '../utils/consts';
 import { socket } from "../utils/socket"; // Importa il socket
 import usePushNotifications from '../utils/usePushNotifications';
@@ -19,6 +18,7 @@ import FeedbackModal from '../tools/FeedbackModal';
 import user3 from '../assets/user3.png';
 import OnlineUsersModal from '../tools/OnlineUsersModal';
 import chat_now from '../assets/chat_now.png';
+import BanAlert from '../tools/BanAlert';
 
 type Chatroom = {
   id: string;
@@ -47,6 +47,10 @@ export default function Home() {
   const [popularChats, setPopularChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
   const [myChats, setMyChats] = useState<Chatroom[]>([]);  // Array vuoto per popularChats
   const [loading, setLoading] = useState<boolean>(true);
+  const [banStatus, setBanStatus] = useState<number>(0);
+  const [banMessage, setBanMessage] = useState<string>('');
+  const [banRead, setBanRead] = useState<boolean>(true);
+  const [ipAddress, setIpAddress] = useState<string>('');
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [nicknameTmp, setTmpNickname] = useState<string>('');
@@ -63,6 +67,7 @@ export default function Home() {
   const [showModalUsersOnline, setShowModalUsersOnline] = useState(false);
   const [profileToShow, setProfileToShow] = useState<User | null>(null);
 
+  const [animate, setAnimate] = useState<boolean>(false);
 
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
@@ -161,6 +166,10 @@ export default function Home() {
 
         //console.log("risultato", response)
 
+      if (response.ban_status) {
+        setBanStatus(response.ban_status)
+      }
+
       if (response.nickname !== null) {
         setNickName(response.nickname)
         if (response.recovery_code_is_null == 1) {
@@ -197,6 +206,12 @@ export default function Home() {
         setPopularChats(response.popularChats)
       }
 
+      if (response.ban_status > 0 && response.ban_read == false) {
+        setBanMessage(response.ban_message)
+        setBanRead(response.ban_read)
+        setBanStatus(response.ban_status)
+        setIpAddress(response.ip_address)
+      }
 
       socket.off('new_private_messages');
 
@@ -281,6 +296,7 @@ export default function Home() {
 
 
   useEffect(() => {
+    setAnimate(true);
 
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeStr(welcomeMessages[randomIndex]);
@@ -374,13 +390,33 @@ export default function Home() {
   }
 
   <div className={`flex justify-center md:flex-1`}>
-    <Link to="/create-chat">
-    <button className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-800 flex items-center space-x-2">
-    {/* Immagine a sinistra del bottone */}
-    <img src={create_chat} alt="Create Chat" className="w-5 h-5" />
-    <span className='font-mono'>Create Chat</span>
-  </button>
-    </Link>
+    {nickname ? (
+        <div className="flex items-center gap-2">
+        <h1
+            className={`text-1xl font-bold text-gray-500 font-mono ${
+              animate ? "typing-effect" : ""
+            }`}
+          >
+            Hey, welcome back
+        </h1>
+        <span
+          onClick={openNicknameModal}
+          className="underline cursor-pointer text-1xl text-gray-500 font-mono"
+        >
+          {nickname}
+        </span>
+      </div>
+      
+      ) : <span>
+      <h1
+            className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal ${
+              animate ? "typing-effect" : ""
+            }`}
+          >
+            {welcomeStr}
+          </h1>
+    </span>
+    }
   </div>
 
   {/* Icona Filtro */}
@@ -394,6 +430,16 @@ export default function Home() {
 </div>
     );
   };
+
+
+  if (banStatus == 2) {
+  return (
+    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+      <strong className="font-bold">Access denied! </strong>
+      <span className="block sm:inline">You have been permanently banned.</span>
+    </div>
+  );
+}
 
   return (
     <div className="relative flex flex-col justify-center items-center max-w-3xl mx-auto">
@@ -411,6 +457,17 @@ export default function Home() {
           <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
           <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
         </button>
+        {(showRecoveryCodeModal) && <RecoveryCodeSetter onSetted={() => {
+          setShowRecoveryCodeModal(false);
+          setShowToastMessage("Recovery code saved!");
+          setTimeout(() => setShowToastMessage(null), 3000);
+
+        }} />}
+        {(showFeedback) && <FeedbackModal onSetted={() => {
+      setShowFeedback(false);
+          setShowToastMessage("Feedback sent, thank you! ❤️");
+          setTimeout(() => setShowToastMessage(null), 3000);
+        }} />}
 
         {open && (
           <div className="absolute mt-2 w-44 bg-white border border-gray-200 rounded shadow-lg">
@@ -458,47 +515,27 @@ export default function Home() {
 
   <div className="flex items-center space-x-3">
     <img
-      src={Logo}
-      alt="Logo"
-      className="w-40 h-[137px] sm:w-52 sm:h-[179px] md:w-48 md:h-[165px] lg:w-56 lg:h-[193px] xl:w-45 xl:h-[155px]"
-    />
+  src={Logo}
+  alt="Logo"
+  className="w-32 sm:w-40 md:w-44 lg:w-48 xl:w-[170px] h-auto"
+/>
+
+
   </div>
   {loading ? ( 
     // Spinner mentre i dati vengono caricati
     <LoadingSpinner />
   ) : (
     <>
-      {nickname ? (
-        <div className="flex items-center gap-2">
-        <h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect">
-          Hey, welcome back
-        </h1>
-        <span
-          onClick={openNicknameModal}
-          className="underline cursor-pointer text-1xl my-4 text-gray-500 font-mono"
-        >
-          {nickname}
-        </span>
-      </div>
+      <BanAlert
+        nickname={nickname}
+        banMessage={banMessage}
+        banRead={banRead}
+        banStatus={banStatus}
+        ipAddress={ipAddress}
+        onClose={() => setBanRead(true)}
+      />
       
-      ) : <span>
-      <h1 className="text-1xl font-bold my-4 text-gray-500 font-mono typing-effect block break-words whitespace-normal">
-        {welcomeStr}
-      </h1>
-    </span>
-    }
-    {(showRecoveryCodeModal) && <RecoveryCodeSetter onSetted={() => {
-      setShowRecoveryCodeModal(false);
-      setShowToastMessage("Recovery code saved!");
-      setTimeout(() => setShowToastMessage(null), 3000);
-
-    }} />}
-
-    {(showFeedback) && <FeedbackModal onSetted={() => {
-      setShowFeedback(false);
-      setShowToastMessage("Feedback sent, thank you! ❤️");
-      setTimeout(() => setShowToastMessage(null), 3000);
-    }} />}
     <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
       <HeaderBrokenChat alreadyJoined={nickname} />
     </div>

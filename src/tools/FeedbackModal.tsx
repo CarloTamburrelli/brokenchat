@@ -36,14 +36,13 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onSetted }) => {
   return (
     <>
       <span
-            className="text-blue-600 font-mono underline cursor-pointer inline-flex items-center gap-2"
+            className="cursor-pointer"
             onClick={() => setShowModal(true)}
             >
-            Send your feedback to Broken Chat
             <img
                 src={review}
                 alt="Your feedback is very important!!!"
-                className="w-5 h-5"
+                className="w-6 h-6 cursor-pointer my-2"
             />
             </span>
 

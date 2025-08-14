@@ -449,12 +449,41 @@ app.get('/am-i-registred', async (req, res) => {
 })
 
 
+app.post('/ban-read', async (req, res) => {
+  const { token } = req.query;
+
+  try {
+    await pool.query(
+      `UPDATE users SET ban_read = true WHERE token = $1`,
+      [token]
+    );
+    res.status(200).json({});
+  } catch (err) {
+    console.error("Error during ban read setter:", err);
+    res.status(500).json({ message: "Error during ban read setter" });
+  }
+});
+
+
 app.get('/get-user', async (req, res) => {
   const { token, filter, lat, lon, mode } = req.query;  // Prendi i parametri dalla query
 
   //console.log("sto prendendo le chat...", filter, lat, lon, "Con modo: ", mode, "  Ok???")
 
   //const [lat, lon] = ["44.4974349", "11.3714015"];
+
+  const ip = normalizeIp(req.ip);
+
+  const isIpBanned = await pool.query(
+      `SELECT *
+       FROM users u
+       WHERE u.ip_address = $1 AND u.ban_status = 2`,
+      [ip]
+  );
+
+  if (isIpBanned.rows.length !== 0) {
+    return res.status(200).json({ ban_status: 2 }); // interrompi ogni operazione
+  }
 
   const FILTERS = ["Popular", "Nearby", "My Chats"];
 
@@ -480,7 +509,7 @@ app.get('/get-user', async (req, res) => {
     const userResult = await pool.query(
       `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude,
        CASE WHEN u.recovery_code IS NULL THEN 1 ELSE 0 END as recovery_code_is_null,
-       CASE WHEN f.id IS NULL THEN 1 ELSE 0 END as feedback_is_null 
+       CASE WHEN f.id IS NULL THEN 1 ELSE 0 END as feedback_is_null, u.ban_status, u.ban_message, u.ban_read  
        FROM users u
        LEFT JOIN feedbacks as f ON f.user_id = u.id
        WHERE u.token = $1`,
@@ -497,6 +526,9 @@ app.get('/get-user', async (req, res) => {
       userId = userResult.rows[0].id;  // Ottieni il nickname dell'utente
       recovery_code_is_null = userResult.rows[0].recovery_code_is_null;  // Ottieni il nickname dell'utente
       feedback_is_null = userResult.rows[0].feedback_is_null;  // Ottieni il nickname dell'utente
+      ban_status = userResult.rows[0].ban_status;
+      ban_message = userResult.rows[0].ban_message;
+      ban_read = userResult.rows[0].ban_read;
 
       const isValid = (v) => v !== null && v !== "0" && v !== 0;
 
@@ -548,7 +580,11 @@ app.get('/get-user', async (req, res) => {
         recovery_code_is_null,
         feedback_is_null,
         unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10),
-        totalUsersOnline
+        totalUsersOnline,
+        ban_status,
+        ban_message,
+        ban_read,
+        ip_address: ip
       });
 
     } else {
@@ -747,6 +783,20 @@ app.get('/chat/:chatId', async (req, res) => {
   const { chatId } = req.params; // Recupera chatId dall'URL
   const token = req.query.token; // Recupera il token dalla query string
 
+  const ip = normalizeIp(req.ip);
+
+  const isIpBanned = await pool.query(
+      `SELECT *
+       FROM users u
+       WHERE u.ip_address = $1 AND u.ban_status = 2`,
+      [ip]
+  );
+
+  if (isIpBanned.rows.length !== 0) {
+    return res.status(403).json({ message: 'You have been banned from Broken Chat permanently.' }); // interrompi ogni operazione
+  }
+
+
   try {
     // Esegui la query per ottenere i dati della chat dal database
     const result = await pool.query(
@@ -756,6 +806,7 @@ app.get('/chat/:chatId', async (req, res) => {
          CASE WHEN u.id IS NOT NULL THEN u.id ELSE 0 END as user_id, 
          CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END as already_in,
          u.nickname,
+         u.ban_status,
          u.id as user_id,
          c.description,
          u_admin.nickname as nickname_admin, 
@@ -786,6 +837,10 @@ app.get('/chat/:chatId', async (req, res) => {
 
     // Restituisci i dati della chat
     const chatData = result.rows[0];
+
+    if (chatData.ban_status == 2) {
+      return res.status(403).json({ message: 'You have been banned from Broken Chat permanently.' });
+    }
 
     if (chatData.is_banned == 1) {
       return res.status(403).json({ message: 'You have been banned from this chat by the administrator.' });
@@ -1224,6 +1279,22 @@ app.get("/conversation/:conversationId", async (req, res) => {
   const { token } = req.query;
 
   try {
+
+        const ip = normalizeIp(req.ip);
+
+        const isIpBanned = await pool.query(
+            `SELECT *
+            FROM users u
+            WHERE u.ip_address = $1 AND u.ban_status = 2`,
+            [ip]
+        );
+
+        if (isIpBanned.rows.length !== 0) {
+          return res.status(403).json({ message: 'You have been banned from Broken Chat permanently.' }); // interrompi ogni operazione
+        }
+
+
+
       const conversationQuery = `
           SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname,
                  u2.id AS target_user_id, u2.nickname AS target_user_nickname, u1.latitude as my_lat, u1.longitude as my_lon, 

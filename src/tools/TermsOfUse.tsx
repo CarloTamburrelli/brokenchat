@@ -10,7 +10,7 @@ const TermsOfUse: React.FC = () => {
         <img 
           src={Logo} 
           alt="Logo" 
-          className="w-40 h-[137px] sm:w-52 sm:h-[179px] md:w-48 md:h-[165px] lg:w-56 lg:h-[193px] xl:w-45 xl:h-[155px]" 
+          className="w-32 sm:w-40 md:w-44 lg:w-48 xl:w-[170px] h-auto" 
         />
       </Link>
 
