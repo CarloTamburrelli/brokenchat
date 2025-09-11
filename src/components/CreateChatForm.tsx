@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from "../utils/api";
 import { isValidNickname } from "../utils/validations";
-import { useLocation } from "../base/LocationContext";
+import { useLocation } from "../utils/LocationContext";
 import { getLocationName } from "../utils/location";
 
 

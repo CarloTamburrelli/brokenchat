@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { getPosition } from "../utils/geolocation"; // Funzione che richiede la posizione
+import { getPosition } from "./geolocation"; // Funzione che richiede la posizione
 
 // Definizione del contesto
 const LocationContext = createContext<{

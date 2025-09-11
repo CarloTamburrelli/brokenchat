@@ -1,13 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './style/App.css';
-import CreateChatForm from './tools/CreateChatForm';
-import ChatPage from './tools/ChatPage'; 
-import PrivateChatPage from './tools/PrivateChatPage'; 
-import Home from './base/Home';
-import PrivateMessages from './tools/PrivateMessages';
-import RecoveryProfile from './tools/RecoveryProfile';
-import PrivacyPolicy from './tools/PrivacyPolicy';
-import TermsOfUse from './tools/TermsOfUse';
+import CreateChatForm from './components/CreateChatForm';
+import ChatPage from './components/ChatPage'; 
+import PrivateChatPage from './components/PrivateChatPage'; 
+import Home from './components/Home/Home';
+import PrivateMessages from './components/PrivateMessages';
+import RecoveryProfile from './components/RecoveryProfile';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfUse from './components/TermsOfUse';
 
 
 function App() {

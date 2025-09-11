@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { BrowserRouter } from "react-router-dom";
 import "@testing-library/jest-dom"; // Importa le estensioni di jest-dom
-import Home from "../base/Home"; // Assicurati che il path sia corretto
+import Home from "../components/Home/Home"; // Assicurati che il path sia corretto
 
 describe("Home component", () => {
   it("renders the logo image", () => {

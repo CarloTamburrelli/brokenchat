@@ -1,24 +1,21 @@
-import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import Logo from '../assets/logo.png';
-import { formatDate } from '../utils/formatDate';
-import { fetchWithPrefix } from '../utils/api';
-import ChatList from '../base/ChatList';
-import { useLocation } from "../base/LocationContext"; // Usa il contesto della posizione
-import my_messages from '../assets/my_messages.png';
-import key from '../assets/key.png';
-import FilterMenu from '../tools/FilterMenu';
-import LocationRequestButton from "../tools/LocationRequestButton";
-import LoadingSpinner from '../tools/LoadingSpinner';
-import { welcomeMessages } from '../utils/consts';
-import { socket } from "../utils/socket"; // Importa il socket
-import usePushNotifications from '../utils/usePushNotifications';
-import RecoveryCodeSetter from '../tools/RecoveryCodeSetter';
-import FeedbackModal from '../tools/FeedbackModal';
-import user3 from '../assets/user3.png';
-import OnlineUsersModal from '../tools/OnlineUsersModal';
-import chat_now from '../assets/chat_now.png';
-import BanAlert from '../tools/BanAlert';
+import { formatDate } from '../../utils/formatDate';
+import { fetchWithPrefix } from '../../utils/api';
+import ChatList from '../ChatList';
+import { useLocation } from "../../utils/LocationContext"; // Usa il contesto della posizione
+import LoadingSpinner from '../LoadingSpinner';
+import { welcomeMessages } from '../../utils/consts';
+import { socket } from "../../utils/socket"; // Importa il socket
+import usePushNotifications from '../../utils/usePushNotifications';
+import OnlineUsersModal from '../OnlineUsersModal';
+import BanAlert from '../BanAlert';
+import MenuButton from './MenuButton';
+import OnlineUsersIndicator from './OnlineUsersIndicator';
+import LogoBlock from './LogoBlock';
+import HeaderBrokenChat from './HeaderBrokenChat';
+import ProfileModal from './ProfileModal';
+import NicknameModal from './NicknameModal';
+import GlobalChat from './GlobalChat';
 
 type Chatroom = {
   id: string;
@@ -36,7 +33,6 @@ interface User {
 }
 
 type GroupedChats = Record<number, Chatroom[]>;
-
 
 
 export default function Home() {
@@ -70,7 +66,7 @@ export default function Home() {
   const [animate, setAnimate] = useState<boolean>(false);
 
   const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   usePushNotifications(userId!, true) //web notification
 
@@ -357,81 +353,6 @@ export default function Home() {
   }, [userId]);
 
 
-  interface HeaderBrokenChatProps {
-    alreadyJoined: string | null;  // Accettiamo il nickname come variabile
-  }
-  
-
-  const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({ alreadyJoined }) => {
-
-    return (
-      <div className='w-full my-2'>
-      <div className="flex justify-center items-center w-full pl-2 pr-2">
-  {/* Icona Messaggi Privati */}
-  {alreadyJoined && alreadyJoined !== "" ? (
-  <div className="md:flex flex-1 justify-start">
-    <Link to="/private-messages" className="pointer-events-auto">
-      <div className="relative w-8 h-8">
-        <img src={my_messages} alt="Messaggi Privati" className="w-8 h-8" />
-        {unreadPrivateMessagesCount > 0 && (<span className="absolute -top-1 -right-3 w-5 h-5 bg-blue-500 text-white text-[11px] rounded-full flex items-center justify-center">
-          {unreadPrivateMessagesCount}
-        </span>)}
-      </div>
-    </Link>
-  </div>
-  ) : (
-  <div className="md:flex flex-1 justify-start">
-    <Link to="/recovery-profile" className="flex-1 md:flex-none md:w-auto flex cursor-pointer">
-        <img src={key} alt="Recovery Code" className="w-6 h-6" />
-        <span className="ml-2 text-black hidden md:flex flex-1 font-mono">Profile recovery</span>
-    </Link>
-  </div>
-  )
-  }
-
-  <div className={`flex justify-center md:flex-1`}>
-    {nickname ? (
-        <div className="flex items-center gap-2">
-        <h1
-            className={`text-1xl font-bold text-gray-500 font-mono ${
-              animate ? "typing-effect" : ""
-            }`}
-          >
-            Hey, welcome back
-        </h1>
-        <span
-          onClick={openNicknameModal}
-          className="underline cursor-pointer text-1xl text-gray-500 font-mono"
-        >
-          {nickname}
-        </span>
-      </div>
-      
-      ) : <span>
-      <h1
-            className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal ${
-              animate ? "typing-effect" : ""
-            }`}
-          >
-            {welcomeStr}
-          </h1>
-    </span>
-    }
-  </div>
-
-  {/* Icona Filtro */}
-  <div className="md:flex flex-1 justify-end">
-    <FilterMenu myFilterToShow={nickname != ""} nearFilterToShow={!!lat && !!lon} selectedFilter={selectedFilter} setSelectedFilter={setSelectedFilter} />
-  </div>
-</div>
-<div className="flex justify-center">
-  <LocationRequestButton />
-</div>
-</div>
-    );
-  };
-
-
   if (banStatus == 2) {
   return (
     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -444,206 +365,103 @@ export default function Home() {
   return (
     <div className="relative flex flex-col justify-center items-center max-w-3xl mx-auto">
       {/* 3 puntini in alto a sinistra dentro il contenitore */}
-      <div
-        ref={menuRef}
-        className="absolute top-3 left-2 z-50"
-      >
-        <button
-          onClick={() => setOpen(!open)}
-          className="flex flex-col justify-center items-center w-6 h-6 space-y-0.5"
-          aria-label="Menu"
-        >
-          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
-          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
-          <span className="w-1.5 h-1.5 bg-gray-700 rounded-full"></span>
-        </button>
-        {(showRecoveryCodeModal) && <RecoveryCodeSetter onSetted={() => {
-          setShowRecoveryCodeModal(false);
-          setShowToastMessage("Recovery code saved!");
-          setTimeout(() => setShowToastMessage(null), 3000);
-
-        }} />}
-        {(showFeedback) && <FeedbackModal onSetted={() => {
-      setShowFeedback(false);
-          setShowToastMessage("Feedback sent, thank you! ❤️");
-          setTimeout(() => setShowToastMessage(null), 3000);
-        }} />}
-
-        {open && (
-          <div className="absolute mt-2 w-44 bg-white border border-gray-200 rounded shadow-lg">
-          <a
-            href="/privacy-policy"
-            className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
-          >
-            Privacy & Cookie Policy
-          </a>
-
-          <hr className="border-t border-gray-200 my-1" />
-
-          <a
-            href="/terms-of-use"
-            className="block px-4 py-2 text-sm font-mono text-gray-700 hover:bg-gray-100"
-          >
-            Terms of use
-          </a>
-        
-          {userId && (
-            <>
-              <hr className="border-t border-gray-200 my-1" />
-              <button
-                onClick={handleRemoveAccount}
-                className="w-full text-left px-4 py-2 text-sm font-mono text-gray-700 hover:bg-red-100"
-              >
-                Remove Account
-              </button>
-            </>
-          )}
-        </div>
-        
-        )}
-      </div>
-      <div
-        className="absolute top-3 right-2 z-50"
-      >
-        {(totalUsersIdOnline && totalUsersIdOnline.length > 0) && (<div onClick={() => setShowModalUsersOnline(true)} className="cursor-pointer flex items-center space-x-1 bg-gray-700 rounded-full px-2 py-1">
-          <img src={user3} alt="Users Icon" className="w-5 h-5" />
-          <span onClick={() => setShowModalUsersOnline(true)} className="text-white text-sm font-semibold flex items-center justify-center min-w-[20px]">
-            {totalUsersIdOnline.length}
-          </span>
-        </div>)}
-      </div>
-
-  <div className="flex items-center space-x-3">
-    <img
-  src={Logo}
-  alt="Logo"
-  className="w-32 sm:w-40 md:w-44 lg:w-48 xl:w-[170px] h-auto"
-/>
-
-
-  </div>
-  {loading ? ( 
-    // Spinner mentre i dati vengono caricati
-    <LoadingSpinner />
-  ) : (
-    <>
-      <BanAlert
-        nickname={nickname}
-        banMessage={banMessage}
-        banRead={banRead}
-        banStatus={banStatus}
-        ipAddress={ipAddress}
-        onClose={() => setBanRead(true)}
+      <MenuButton
+        menuRef={menuRef}
+        open={open}
+        setOpen={setOpen}
+        showRecoveryCodeModal={showRecoveryCodeModal}
+        setShowRecoveryCodeModal={setShowRecoveryCodeModal}
+        showFeedback={showFeedback}
+        setShowFeedback={setShowFeedback}
+        setShowToastMessage={setShowToastMessage}
+        userId={userId}
+        handleRemoveAccount={handleRemoveAccount}
       />
-      
-    <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
-      <HeaderBrokenChat alreadyJoined={nickname} />
-    </div>
-    <ChatList myChats={myChats} nearbyChats={nearbyChats} popularChats={popularChats} 
-  headerHeight={headerHeight} />
-    </>
-  )}
 
-{showModalUsersOnline && (
-      <OnlineUsersModal
-        userIds={totalUsersIdOnline}
-        onClose={() => setShowModalUsersOnline(false)}
-        onUserClicked={onUserClicked}
+      {/* Logo + GlobalChat */}
+      <div className="flex flex-col md:flex-row items-center w-full space-y-4 md:space-y-0 md:space-x-4 justify-center">
+        <LogoBlock />
+        <GlobalChat />
+      </div>
+
+
+      {/* Utenti online in alto a destra */}
+      <OnlineUsersIndicator
+        totalUsersIdOnline={totalUsersIdOnline}
+        setShowModalUsersOnline={setShowModalUsersOnline}
+      />
+
+    {/* Contenuto principale */}
+    {loading ? ( 
+      // Spinner mentre i dati vengono caricati
+      <LoadingSpinner />
+    ) : (
+      <>
+        <BanAlert
+          nickname={nickname}
+          banMessage={banMessage}
+          banRead={banRead}
+          banStatus={banStatus}
+          ipAddress={ipAddress}
+          onClose={() => setBanRead(true)}
+        />
+      
+        <HeaderBrokenChat
+          headerRef={headerRef}
+          alreadyJoined={nickname}
+          nickname={nickname}
+          welcomeStr={welcomeStr}
+          animate={animate}
+          unreadPrivateMessagesCount={unreadPrivateMessagesCount}
+          openNicknameModal={openNicknameModal}
+          lat={lat}
+          lon={lon}
+          selectedFilter={selectedFilter}
+          setSelectedFilter={setSelectedFilter}
+        />
+
+        <ChatList 
+          myChats={myChats} 
+          nearbyChats={nearbyChats} 
+          popularChats={popularChats} 
+          headerHeight={headerHeight} 
+        />
+      </>
+    )}
+
+    {/* modals */}
+
+    {showModalUsersOnline && (
+          <OnlineUsersModal
+            userIds={totalUsersIdOnline}
+            onClose={() => setShowModalUsersOnline(false)}
+            onUserClicked={onUserClicked}
+          />
+        )}
+
+    {profileToShow && (
+      <ProfileModal
+        profile={profileToShow}
+        onClose={() => setProfileToShow(null)}
       />
     )}
 
 
-
-{profileToShow && (
-        <div
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-30"
-        onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
-      >
-        <div
-          className="bg-white p-5 rounded-lg shadow-lg w-96 relative text-left"
-          onClick={(e) => e.stopPropagation()} // Impedisce la chiusura se clicchi dentro la modal
-        >
-          {/* Header con titolo e pulsante di chiusura */}
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">{profileToShow?.nickname}'s profile</h2>
-            <button
-              onClick={() => setProfileToShow(null)}
-              className="text-gray-500 hover:text-black text-2xl font-semibold"
-            >
-              ✕
-            </button>
-          </div>
-      
-          {/* Dettagli Profilo */}
-          <div className="text-sm text-gray-800 space-y-2">
-            <div><span className="font-semibold">Registered on:</span> {profileToShow.subscription || "Data non disponibile"}</div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-center space-x-4">
-      
-          
-            <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
-              <Link to={`/private-messages/new/${profileToShow.id}`} className="flex items-center space-x-2">
-                <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
-                <span>Private message</span>
-              </Link>
-            </button>
-          </div>
-        </div>
-      </div>
-      )}
-
-
-{showNicknameModal && (
-  <div
-    className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20"
-    onClick={() => setShowNicknameModal(false)} // Chiude la modal cliccando fuori
-  >
-    <div
-      className="bg-white p-6 rounded-lg shadow-lg relative w-96"
-      onClick={(e) => e.stopPropagation()} // Impedisce la chiusura cliccando dentro la modal
-    >
-      {/* Header con titolo e pulsante di chiusura */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-gray-800 font-mono">Change your nickname</h2>
-        <button
-          className="text-gray-500 hover:text-black text-2xl font-semibold"
-          onClick={() => setShowNicknameModal(false)}
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Input del nickname */}
-      <input
-        maxLength={17}
-        type="text"
-        placeholder="Nuovo nickname"
-        value={nicknameTmp}
-        onChange={(e) => setTmpNickname(e.target.value)}
-        className="border p-2 mt-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    {showNicknameModal && (
+      <NicknameModal
+        nicknameTmp={nicknameTmp}
+        setTmpNickname={setTmpNickname}
+        onClose={() => setShowNicknameModal(false)}
+        onConfirm={handleChangeNickname}
       />
+    )}
 
-      {/* Bottone di conferma */}
-      <div className="flex mt-4 justify-center">
-        <button
-          onClick={handleChangeNickname}
-          className="bg-blue-500 text-white px-6 py-2 rounded-md font-mono hover:bg-blue-600"
-        >
-          Confirm
-        </button>
+    {showToastMessage && (
+      <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
+        {showToastMessage}
       </div>
-    </div>
+    )}
+
   </div>
-)}
-
-{showToastMessage && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-md shadow-lg animate-fadeInOut">
-          {showToastMessage}
-        </div>
-      )}
-
-
-</div>
   );
   }

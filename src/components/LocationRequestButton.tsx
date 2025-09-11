@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "../base/LocationContext"; // Usa il contesto della posizion
+import { useLocation } from "../utils/LocationContext"; // Usa il contesto della posizion
 import warning from "../assets/warning.png"
 
 const LocationRequestButton: React.FC = () => {

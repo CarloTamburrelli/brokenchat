@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import Header from '../base/header';
+import Header from './header';
 import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from '../utils/formatDate';
@@ -593,8 +593,9 @@ function ChatPage() {
 
       const mp3Data = await ffmpeg.readFile('output.mp3')
 
-      // Converti in Base64
-      const mp3Blob = new Blob([mp3Data], { type: 'audio/mp3' });
+      const arrayBuffer = (mp3Data instanceof Uint8Array ? mp3Data.buffer : new Uint8Array(mp3Data as any).buffer);
+
+      const mp3Blob = new Blob([arrayBuffer], { type: 'audio/mp3' });
       const base64Audio = await blobToBase64(mp3Blob);
       setIsLoadingConverting(false);  // Rimuovi il loading indicator
       sendAudioMessage(base64Audio);

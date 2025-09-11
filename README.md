@@ -12,7 +12,6 @@ Geolocalized chat system that finds the closest chats in your area.
 - Sistema automatico di scarto contenuti con Nudenet, tramite un container a parte che faccia questo controllo.:
   - qui il sistema automatico controllerà in background ogni messaggio inviato dalla piattaforma e provvederà alla sua rimozione in un secondo momento qualora vedesse nudità
 - Criptaggio informazioni per chat private
-- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
 - aggiungere chat globale nella home:
   hai già spostato varie cose, ora bisogna inserire il blocco chat sopra "Hey, welcome back..." un po' sfumato sopra con i messaggi che usciranno automaticamente appena uno scrive e la possibilità di ingrandire la chat e chattare e secondo me anche tasto per ingrandire l'intera chat in una pagina a parte che si chiamerà "Global Chat".
 - risolvere bug che ci fa cadere sempre il server :O
@@ -34,6 +33,10 @@ Geolocalized chat system that finds the closest chats in your area.
         at parseType (/app/node_modules/redis-parser/lib/parser.js:302:14) {
       command: { name: 'srem', args: [ 'online', '3170' ] }
     }
+
+
+----- post----
+- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
 
 ## Query SQL
 
