@@ -298,9 +298,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
         await ffmpeg.exec(['-i', audioFilePath, 'output.mp3']);
   
         const mp3Data = await ffmpeg.readFile('output.mp3')
-  
-        // Converti in Base64
-        const mp3Blob = new Blob([mp3Data], { type: 'audio/mp3' });
+
+        const arrayBuffer = (mp3Data instanceof Uint8Array ? mp3Data.buffer : new Uint8Array(mp3Data as any).buffer);
+
+        const mp3Blob = new Blob([arrayBuffer], { type: 'audio/mp3' });
         const base64Audio = await blobToBase64(mp3Blob);
         setIsLoadingConverting(false);  // Rimuovi il loading indicator
         sendAudioMessage(base64Audio);
