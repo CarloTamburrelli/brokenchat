@@ -13,7 +13,8 @@ Geolocalized chat system that finds the closest chats in your area.
   - qui il sistema automatico controllerà in background ogni messaggio inviato dalla piattaforma e provvederà alla sua rimozione in un secondo momento qualora vedesse nudità
 - Criptaggio informazioni per chat private
 - aggiungere chat globale nella home:
-  hai già spostato varie cose, ora bisogna inserire il blocco chat sopra "Hey, welcome back..." un po' sfumato sopra con i messaggi che usciranno automaticamente appena uno scrive e la possibilità di ingrandire la chat e chattare e secondo me anche tasto per ingrandire l'intera chat in una pagina a parte che si chiamerà "Global Chat".
+  ho creato la base ora bisogna mostrare la chat dove la gente si parlerà, probabilmente bisogna far entrare con la socket anche chi non sta scrivendo ed è solo in home, altrimenti non vedrebbe i messaggi in tempo reale. Inoltre probabilmente anche per chi non è iscritto bisognerà mostrare i messaggi in tempo reale e quindi dovrà ricevere le socket anch'egli. 
+  Inizialmente potrei usare il .env per impostare l'id della chat globale.
 - risolvere bug che ci fa cadere sempre il server :O
   tipico errore:
     Un utente si è disconnesso 79 undefined undefined

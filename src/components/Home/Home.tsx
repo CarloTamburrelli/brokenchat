@@ -363,12 +363,24 @@ export default function Home() {
 }
 
   return (
-    <div className="relative flex flex-col justify-center items-center max-w-3xl mx-auto">
-      {/* 3 puntini in alto a sinistra dentro il contenitore */}
+    <div className="relative flex flex-col max-w-3xl mx-auto w-full">
+  {/* HEADER: Logo + GlobalChat + Menu */}
+  <div className="flex flex-col md:flex-row items-center md:items-start justify-between w-full md:space-x-4">
+    
+    {/* Logo a sinistra */}
+    <div className="flex justify-center  md:self-center  md:justify-start">
+      <LogoBlock />
+    </div>
+
+    {/* Global Chat al centro su desktop */}
+    <div className="hidden md:flex flex-1 pr-8 pt-3">
+      <GlobalChat />
+    </div>
+
+    {/* MenuButton a destra */}
+    <div className="flex justify-center md:justify-end">
       <MenuButton
         menuRef={menuRef}
-        open={open}
-        setOpen={setOpen}
         showRecoveryCodeModal={showRecoveryCodeModal}
         setShowRecoveryCodeModal={setShowRecoveryCodeModal}
         showFeedback={showFeedback}
@@ -377,23 +389,16 @@ export default function Home() {
         userId={userId}
         handleRemoveAccount={handleRemoveAccount}
       />
+    </div>
+  </div>
 
-      {/* Logo + GlobalChat */}
-      <div className="flex flex-col md:flex-row items-center w-full space-y-4 md:space-y-0 md:space-x-4 justify-center">
-        <LogoBlock />
-        <GlobalChat />
-      </div>
-
-
-      {/* Utenti online in alto a destra */}
-      <OnlineUsersIndicator
-        totalUsersIdOnline={totalUsersIdOnline}
-        setShowModalUsersOnline={setShowModalUsersOnline}
-      />
+  {/* CHAT */}
+  <div className="justify-center mt-4 md:mt-0 md:ml-4 block md:hidden">
+    <GlobalChat />
+  </div>
 
     {/* Contenuto principale */}
-    {loading ? ( 
-      // Spinner mentre i dati vengono caricati
+    {loading ? (
       <LoadingSpinner />
     ) : (
       <>
@@ -430,22 +435,6 @@ export default function Home() {
     )}
 
     {/* modals */}
-
-    {showModalUsersOnline && (
-          <OnlineUsersModal
-            userIds={totalUsersIdOnline}
-            onClose={() => setShowModalUsersOnline(false)}
-            onUserClicked={onUserClicked}
-          />
-        )}
-
-    {profileToShow && (
-      <ProfileModal
-        profile={profileToShow}
-        onClose={() => setProfileToShow(null)}
-      />
-    )}
-
 
     {showNicknameModal && (
       <NicknameModal
