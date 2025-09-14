@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { formatDate } from '../../utils/formatDate';
 import { fetchWithPrefix } from '../../utils/api';
 import ChatList from '../ChatList';
 import { useLocation } from "../../utils/LocationContext"; // Usa il contesto della posizione
@@ -7,33 +6,13 @@ import LoadingSpinner from '../LoadingSpinner';
 import { welcomeMessages } from '../../utils/consts';
 import { socket } from "../../utils/socket"; // Importa il socket
 import usePushNotifications from '../../utils/usePushNotifications';
-import OnlineUsersModal from '../OnlineUsersModal';
 import BanAlert from '../BanAlert';
 import MenuButton from './MenuButton';
-import OnlineUsersIndicator from './OnlineUsersIndicator';
 import LogoBlock from './LogoBlock';
 import HeaderBrokenChat from './HeaderBrokenChat';
-import ProfileModal from './ProfileModal';
 import NicknameModal from './NicknameModal';
 import GlobalChat from './GlobalChat';
-
-type Chatroom = {
-  id: string;
-  name: string;
-  popularity: number;
-  description: string;
-  role_type: number;
-  last_access: string;
-};
-
-interface User {
-  id: number;
-  nickname: string;
-  subscription?: string;
-}
-
-type GroupedChats = Record<number, Chatroom[]>;
-
+import { Chatroom, GroupedChats, MessageData } from '../../types';
 
 export default function Home() {
 
@@ -59,13 +38,11 @@ export default function Home() {
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
   const [showRecoveryCodeModal, setShowRecoveryCodeModal] = useState<boolean>(false);
   const [showFeedback, setShowFeedback] = useState<boolean>(false);
-  const [totalUsersIdOnline, setTotalUsersIdOnline] = useState<number[]>([]); 
-  const [showModalUsersOnline, setShowModalUsersOnline] = useState(false);
-  const [profileToShow, setProfileToShow] = useState<User | null>(null);
+  const [globalMessages, setGlobalMessages] = useState<MessageData[]>([]);
+  const [totalUsersGlobalChat, setTotalUsersGlobalChat] = useState<number>(0); 
+  const [globalChatName, setGlobalChatName] = useState<string>('Global Chat');
 
   const [animate, setAnimate] = useState<boolean>(false);
-
-  const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   usePushNotifications(userId!, true) //web notification
@@ -122,21 +99,6 @@ export default function Home() {
     setShowNicknameModal(true);
   }
 
-  const onUserClicked = async (user: User) => {
-      setShowModalUsersOnline(false)
-  
-      if (!user) {
-        return;
-      }
-  
-      setProfileToShow({
-        id: user.id,
-        nickname: user.nickname,
-        subscription: formatDate(user.subscription!),
-      })
-      
-  }
-
   const getUserDetailsInit = async () => {
 
     if (lat === null && lon === null && error === null) {
@@ -174,9 +136,9 @@ export default function Home() {
         if (response.feedback_is_null == 1) {
           setShowFeedback(true)
         }
-        if (response.totalUsersOnline && response.totalUsersOnline.length > 0) {
+        if (response.total_users_global_chat && response.total_users_global_chat.length > 0) {
           console.log("Total users online: ", response.totalUsersOnline)
-          setTotalUsersIdOnline(response.totalUsersOnline); 
+          setTotalUsersGlobalChat(response.total_users_global_chat.length); 
         }
       } else {
         //è un utente non registrato - imposto latitude e longitude before db
@@ -189,6 +151,43 @@ export default function Home() {
       if (response.userId !== null) {
         setUserId(response.userId)
       }
+
+    if (socket.connected) {
+      console.log("Socket gia' connesso!")
+      socket.emit('join-home', response.userId);
+    } else {
+      console.log("Socket ancora da connettere!")
+      socket.connect();
+      socket.on('connect', () => {
+        console.log("Socket connesso, ora emetto join-room");
+        socket.emit('join-home', response.userId);
+      });
+    }
+
+    if (response.global_messages) {
+      setGlobalMessages(response.global_messages)
+    }
+
+    if (response.global_chat_name) {
+      setGlobalChatName(response.global_chat_name);
+    }
+
+    socket.on('broadcast_messages', (newMessage) => {
+      setGlobalMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              id: newMessage.id,
+              nickname: newMessage.nickname,
+              message: newMessage.text,
+              date: newMessage.created_at,
+              alert_message: false,
+              user_id: newMessage.user_id,
+              quoted_msg: newMessage.quoted_msg || null,
+              delete_chat: false,
+              msg_type: newMessage.msg_type
+            },
+          ]);
+    });
 
       if ('unread_private_messages_count' in response) {
         setUnreadPrivateMessagesCount(response.unread_private_messages_count)
@@ -297,13 +296,14 @@ export default function Home() {
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeStr(welcomeMessages[randomIndex]);
 
+    /*
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !(menuRef.current as any).contains(event.target)) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);*/
 
     
     
@@ -332,26 +332,6 @@ export default function Home() {
 
   }, [unreadPrivateMessagesCount])
 
-  useEffect(() => {
-
-    if (!userId) {
-      return;
-    }
-
-    if (socket.connected) {
-      //console.log("Socket gia' connesso!")
-      socket.emit('join-home', userId);
-    } else {
-      //console.log("Socket ancora da connettere!")
-      socket.connect();
-      socket.on('connect', () => {
-        //console.log("Socket connesso, ora emetto join-room");
-        socket.emit('join-home', userId);
-      });
-    }
-
-  }, [userId]);
-
 
   if (banStatus == 2) {
   return (
@@ -365,16 +345,16 @@ export default function Home() {
   return (
     <div className="relative flex flex-col max-w-3xl mx-auto w-full">
   {/* HEADER: Logo + GlobalChat + Menu */}
-  <div className="flex flex-col md:flex-row items-center md:items-start justify-between w-full md:space-x-4">
+  <div className="flex flex-col md:flex-row items-start justify-between w-full md:space-x-4">
     
     {/* Logo a sinistra */}
-    <div className="flex justify-center  md:self-center  md:justify-start">
+    <div className="flex justify-start">
       <LogoBlock />
     </div>
 
     {/* Global Chat al centro su desktop */}
     <div className="hidden md:flex flex-1 pr-8 pt-3">
-      <GlobalChat />
+      <GlobalChat globalChatName={globalChatName} globalMessages={globalMessages} totalUsersGlobalChat={totalUsersGlobalChat} />
     </div>
 
     {/* MenuButton a destra */}
@@ -393,8 +373,8 @@ export default function Home() {
   </div>
 
   {/* CHAT */}
-  <div className="justify-center mt-4 md:mt-0 md:ml-4 block md:hidden">
-    <GlobalChat />
+  <div className="justify-center mt-4 md:mt-0 md:ml-4 block md:hidden mx-2">
+    <GlobalChat globalChatName={globalChatName} globalMessages={globalMessages} totalUsersGlobalChat={totalUsersGlobalChat} />
   </div>
 
     {/* Contenuto principale */}

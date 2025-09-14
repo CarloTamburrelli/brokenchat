@@ -1,11 +1,5 @@
 import React from 'react';
-
-interface ProfileUser { 
-  id: number | null;
-  nickname: string | null;
-  subscription: string;
-}
-
+import { UserData } from '../types';
   
 interface UserListModalProps {
     isOpen: boolean;
@@ -13,7 +7,7 @@ interface UserListModalProps {
     users: string[];
     onUserClicked: (userId: number) => void;  // Definisci correttamente il tipo della funzione
     myId: number;
-    adminProfile: ProfileUser;
+    adminProfile: UserData;
   }
   
   

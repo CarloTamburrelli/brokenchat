@@ -73,6 +73,32 @@ app.set('trust proxy', true);
 redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
 redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
 
+async function getGlobalChatName() {
+
+  const cached = await redisClient.get(`global_chat_name`);
+  if (cached) {
+    return cached;
+  }
+
+  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
+
+  if (GLOBAL_CHAT_ID) {
+    const result = await pool.query(
+      "SELECT name FROM chats WHERE id = $1 LIMIT 1",
+      [GLOBAL_CHAT_ID]
+    );
+    const chatName = result.rows[0]?.name || "Global Chat";
+
+    // Salvo in Redis senza scadenza (oppure con expire se preferisci)
+    await redisClient.set(`global_chat_name`, chatName);
+
+    return chatName;
+  } else {
+    return "Global Chat";
+  }
+  
+}
+
 
 async function sendNotificationToUser(userId, nickname, message, conversation_id, msg_type) {
   try {
@@ -246,14 +272,17 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 const getMyChats = async (token) => {
+
+  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
+
   const userChatsResult = await pool.query(
     `SELECT c.id, c.name, c.latitude, c.longitude, r.role_type, r.last_access, c.description 
      FROM chats c
      JOIN roles r ON c.id = r.chat_id
      JOIN users u ON u.id = r.user_id
-     WHERE u.token = $1 AND r.role_type IS DISTINCT FROM 4
+     WHERE u.token = $1 AND r.role_type IS DISTINCT FROM 4 AND c.id <> $2
      ORDER BY r.last_access DESC;`,
-    [token]  // Token dell'utente
+    [token, GLOBAL_CHAT_ID]  // Token dell'utente
   );
 
   const allMyChats = userChatsResult.rows;
@@ -279,13 +308,16 @@ const getMyChats = async (token) => {
 const getNearbyChats = async (token, lat, lon) => {
   try {
       // Recupera tutte le chat dal database
+
+      const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
+
       const allChatsResult = await pool.query(
           `SELECT c.*, r.role_type, r.last_access
            FROM chats c
            LEFT JOIN users as u ON u.token = $1
            LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id 
-           WHERE r.role_type IS DISTINCT FROM 4 AND c.is_private = false`
-      ,[token]);
+           WHERE r.role_type IS DISTINCT FROM 4 AND c.is_private = false AND c.id <> $2`
+      ,[token, GLOBAL_CHAT_ID]);
       const allChats = allChatsResult.rows;
 
       // Crea una pipeline per ottenere il numero di utenti connessi per ogni chat
@@ -504,7 +536,6 @@ app.get('/get-user', async (req, res) => {
       return res.status(200).json(response);
     }
 
-
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
       `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude,
@@ -515,6 +546,45 @@ app.get('/get-user', async (req, res) => {
        WHERE u.token = $1`,
       [token]
     );
+
+    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
+    let messagesResult = null;
+    let total_users_global_chat = 0;
+    let global_chat_name = 'Global Chat';
+    if (GLOBAL_CHAT_ID) {
+      messagesResult = await pool.query(
+        `SELECT * FROM (
+          SELECT 
+            m.id,
+            u.nickname,
+            m.message,
+            m.user_id,
+            m.msg_type,
+            m.created_at as date,
+            CASE 
+              WHEN q.id IS NOT NULL THEN json_build_object(
+                'id', q.id,
+                'nickname', uq.nickname,
+                'msg_type', q.msg_type,
+                'message', q.message
+              )
+              ELSE NULL
+            END AS quoted_msg
+          FROM messages AS m
+          JOIN users AS u ON u.id = m.user_id 
+          LEFT JOIN messages AS q ON q.id = m.quoted_message_id 
+          LEFT JOIN users AS uq ON uq.id = q.user_id
+          WHERE m.chat_id = $1
+          ORDER BY m.created_at DESC
+          LIMIT 6
+        ) sub
+        ORDER BY date ASC;`, 
+        [GLOBAL_CHAT_ID]
+      );
+
+      total_users_global_chat = await redisClient.smembers(`online_users:${GLOBAL_CHAT_ID}`);
+      global_chat_name = await getGlobalChatName();
+    }
 
     let nickname = null; // nome utente se gia' registrato
     let nearbyChats = {}; // Lista delle chat limitrofe
@@ -562,16 +632,6 @@ app.get('/get-user', async (req, res) => {
         [userId]
       );
 
-      let totalUsersOnline = await redisClient.smembers('online');
-
-      const index = totalUsersOnline.indexOf(String(userId));
-      if (index !== -1) {
-        totalUsersOnline.splice(index, 1);
-      }
-
-      console.log("rieccoci e volevo rimuovere="+userId, totalUsersOnline, index)
-
-
       return res.status(200).json({
         userId,
         nickname,
@@ -580,10 +640,12 @@ app.get('/get-user', async (req, res) => {
         recovery_code_is_null,
         feedback_is_null,
         unread_private_messages_count: parseInt(unreadResult.rows[0].unread_count, 10),
-        totalUsersOnline,
+        total_users_global_chat,
+        global_chat_name,
         ban_status,
         ban_message,
         ban_read,
+        global_messages: messagesResult ? messagesResult.rows : [],
         ip_address: ip
       });
 
@@ -596,6 +658,9 @@ app.get('/get-user', async (req, res) => {
         return res.status(200).json({
           nickname: null,  // Utente non trovato, quindi nickname è null
           userChats: [],
+          global_messages: messagesResult ? messagesResult.rows : [],
+          total_users_global_chat,
+          global_chat_name,
           nearbyChats
         });
 
@@ -606,6 +671,9 @@ app.get('/get-user', async (req, res) => {
         return res.status(200).json({
           nickname: null,  // Utente non trovato, quindi nickname è null
           userChats: [],
+          global_messages: messagesResult ? messagesResult.rows : [],
+          total_users_global_chat,
+          global_chat_name,
           popularChats
         });
       }
@@ -619,14 +687,17 @@ app.get('/get-user', async (req, res) => {
 
 // Funzione per ottenere le chat popolari
 const getPopularChats = async (token) => {
+
+  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
+
   const allChatsResult = await pool.query(
     `SELECT c.id, c.name, c.description, r.role_type, r.last_access 
      FROM chats c
      LEFT JOIN users as u ON u.token = $1
      LEFT JOIN roles as r ON r.user_id = u.id AND r.chat_id = c.id
-     WHERE c.is_private = false AND r.role_type IS DISTINCT FROM 4
+     WHERE c.is_private = false AND r.role_type IS DISTINCT FROM 4 AND c.id <> $2 
      `
-  , [token]);
+  , [token, GLOBAL_CHAT_ID]);
   const allChats = allChatsResult.rows;
 
   const pipeline = redisClient.pipeline();
@@ -770,6 +841,11 @@ app.post('/chat/:chatId', async (req, res) => {
       'UPDATE chats SET name = $1, description = $2 WHERE id = $3',
       [title, description, chatId]
     );
+
+    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
+    if (GLOBAL_CHAT_ID) {
+      await redisClient.set(`global_chat_name`, title);
+    }
 
     res.status(200).json({});
   } catch (err) {
@@ -1709,9 +1785,16 @@ io.on('connection', (socket) => {
   // console.log('Un utente si è connesso');
 
   socket.on('join-home', async (user_id) => {
-    socket.join(`user:${user_id}`);
-    socket.userId = user_id;
-    await redisClient.sadd('online', user_id);
+
+    if (user_id) {
+      socket.join(`user:${user_id}`);
+      socket.userId = user_id;
+      await redisClient.sadd('online', user_id);
+    }
+    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
+    if (GLOBAL_CHAT_ID) {
+      socket.join(GLOBAL_CHAT_ID);
+    }
   });
 
   socket.on('join-private-messages', async (user_id) => {
@@ -1815,7 +1898,6 @@ io.on('connection', (socket) => {
   }
 
   socket.on('message', async (chatId, newMessage, userId) => {
-    console.log("Sono nella socket message!");
     try {
 
       const result_message = await pool.query(

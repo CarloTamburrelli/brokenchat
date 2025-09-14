@@ -5,18 +5,7 @@ import { fetchWithPrefix } from "../utils/api";
 import { isValidNickname } from "../utils/validations";
 import { useLocation } from "../utils/LocationContext";
 import { getLocationName } from "../utils/location";
-
-
-// Tipi per i dati del form
-interface ChatData {
-  chatName: string;
-  yourNickname: string;
-  //isPrivate: boolean;
-  token?: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-}
+import { ChatDataForm } from "../types";
 
 function CreateChatForm() {
   const [isRegistred, setIsRegistred] = useState<boolean>(false);
@@ -114,7 +103,7 @@ function CreateChatForm() {
 
     try {
 
-      let requestBody: ChatData = {
+      let requestBody: ChatDataForm = {
         chatName,
         yourNickname,
         //isPrivate,

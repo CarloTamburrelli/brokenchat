@@ -9,12 +9,9 @@ Geolocalized chat system that finds the closest chats in your area.
 
 - Aggiungere video e collegamento a AWS (s3) e inserimento URL  
 - Sistema segnalazione, spiegare meglio il tipo di segnalazione che si vuole fare, campo di testo ecc
-- Sistema automatico di scarto contenuti con Nudenet, tramite un container a parte che faccia questo controllo.:
+- Sistema automatico di scarto contenuti con Nudenet, tramite un container a parte che faccia questo controllo.
   - qui il sistema automatico controllerà in background ogni messaggio inviato dalla piattaforma e provvederà alla sua rimozione in un secondo momento qualora vedesse nudità
 - Criptaggio informazioni per chat private
-- aggiungere chat globale nella home:
-  ho creato la base ora bisogna mostrare la chat dove la gente si parlerà, probabilmente bisogna far entrare con la socket anche chi non sta scrivendo ed è solo in home, altrimenti non vedrebbe i messaggi in tempo reale. Inoltre probabilmente anche per chi non è iscritto bisognerà mostrare i messaggi in tempo reale e quindi dovrà ricevere le socket anch'egli. 
-  Inizialmente potrei usare il .env per impostare l'id della chat globale.
 - risolvere bug che ci fa cadere sempre il server :O
   tipico errore:
     Un utente si è disconnesso 79 undefined undefined
@@ -35,19 +32,29 @@ Geolocalized chat system that finds the closest chats in your area.
       command: { name: 'srem', args: [ 'online', '3170' ] }
     }
 
+## Query SQL e TODO dopo il push
 
------ post----
-- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
+### 1) Task del ban
 
-## Query SQL
+Eseguire la seguente query per aggiungere i campi relativi al ban nella tabella `users`:
 
-1) Task del ban
-
+```sql
 ALTER TABLE users
-ADD COLUMN ban_status SMALLINT DEFAULT 0,  
-ADD COLUMN ban_message TEXT NULL, 
+ADD COLUMN ban_status SMALLINT DEFAULT 0,
+ADD COLUMN ban_message TEXT NULL,
 ADD COLUMN ban_read BOOLEAN DEFAULT false;
+```
 
+### 2) Task della Global chat
+
+devi aggiungere nel file .env questa var:
+
+```
+GLOBAL_CHAT_ID=36  # ID della chat globale
+```
+
+-----post----
+- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
 
 ## Extra TODO
   *FOR APP*

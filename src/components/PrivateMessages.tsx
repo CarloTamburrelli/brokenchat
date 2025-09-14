@@ -6,22 +6,7 @@ import { formatDate } from "../utils/formatDate";
 import LoadingSpinner from "./LoadingSpinner";
 import { socket } from "../utils/socket";
 import microphoneIcon from "../assets/audio.png";
-
-// Definizione del tipo per la conversazione
-interface UserConversation {
-  id: number;
-  user_id: number;
-  nickname: string;
-  last_message?: string;
-  data?: string;
-  is_read: boolean;
-  last_message_time: string;
-  distance: number;
-  geo_hidden: boolean;
-  read: boolean;
-  is_online: boolean;
-  last_message_type: number;
-}
+import { UserConversation } from "../types";
 
 
 const PrivateMessages = () => {

@@ -12,27 +12,8 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import CameraCapture from "./CameraCapture";
 import microphoneIcon from "../assets/audio.png";
+import { MessageData, PrivateUserData } from "../types";  
 
-
-type User = {
-    id: number;
-    nickname: string;
-    distance: number;
-    geo_accepted: boolean;
-    geo_hidden: boolean;
-};
-  
-
-type MessageData = {
-    id:  number | string;
-    nickname: string | null;
-    message: string | null;
-    alert_message: boolean;
-    user_id: number | null;
-    quoted_msg: MessageData | null;
-    msg_type: number;
-    date: string | null;
-  };
 
 const PrivateChatPage = () => {
   const { privateMessageId, userId } = useParams(); // chatId per conversazioni esistenti, userId per nuove
@@ -52,8 +33,8 @@ const PrivateChatPage = () => {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [targetUser, setTargetUser] = useState<User | null>(null);
+  const [authUser, setAuthUser] = useState<PrivateUserData | null>(null);
+  const [targetUser, setTargetUser] = useState<PrivateUserData | null>(null);
   const [selectedMessageId, setSelectedMessageId] = useState<number | string | null>(null);
   const [showToastMessage, setShowToastMessage] = useState<string | null>(null);
   const [isLoadingConverting ,setIsLoadingConverting] = useState(false);
@@ -116,11 +97,12 @@ const PrivateChatPage = () => {
             id: newMessage.id,
             nickname: newMessage.nickname,
             message: newMessage.text,
+            date: newMessage.created_at,
             alert_message: false,
             user_id: newMessage.user_id,
-            msg_type: newMessage.msg_type,
-            date: newMessage.created_at,
             quoted_msg: newMessage.quoted_msg || null,
+            msg_type: newMessage.msg_type,
+            delete_chat: false,
         },
         ]);
 

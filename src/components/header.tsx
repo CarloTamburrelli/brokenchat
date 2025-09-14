@@ -6,15 +6,7 @@ import dots from '../assets/dots.png';
 import my_messages from '../assets/my_messages.png';
 import { Link } from 'react-router-dom';
 import user3 from '../assets/user3.png';
-
-type NavItem = {
-  name: string;
-  href: string;
-  current: boolean;
-  onClick?: () => void;
-  icon?: string;
-};
-
+import { NavItem } from '../types';
 
 
 export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], editChat = () => {}, banUser = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}, AmIAdmin=0}: {numPvtMsgToRead: number, headerName: string, usersList?: string[], editChat: () => void, banUser: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void, AmIAdmin: number}) {

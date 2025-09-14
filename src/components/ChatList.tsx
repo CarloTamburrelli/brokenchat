@@ -3,26 +3,12 @@ import { Link } from 'react-router-dom';
 import users from '../assets/users.png';
 import { formatDate } from "../utils/formatDate";
 import add_chat from '../assets/add_chat.png';
-
-
-interface Chat {
-  id: string;
-  name: string;
-  popularity: number;
-  description: string;
-  role_type: number;
-  last_access: string;
-
-}
-
-interface GroupedChats {
-  [key: number]: Chat[];
-}
+import { Chatroom, GroupedChats } from "../types";
 
 interface ChatListProps {
   nearbyChats?: GroupedChats;  // Lista delle chat limitrofe (opzionale)
-  popularChats?: Chat[]; // Lista delle chat popolari (opzionale)
-  myChats?: Chat[]; // Lista delle chat popolari (opzionale)
+  popularChats?: Chatroom[]; // Lista delle chat popolari (opzionale)
+  myChats?: Chatroom[]; // Lista delle chat popolari (opzionale)
   headerHeight: number;
 }
 

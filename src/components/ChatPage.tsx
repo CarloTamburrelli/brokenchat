@@ -771,7 +771,6 @@ function ChatPage() {
 
   const renderMessage = (msg: MessageData, index: number) => {
 
-
     const convertLinksToAnchors = (text: string, is_my_message: boolean) => {
       const urlRegex = /(https?:\/\/[^\s]+)/g; // Regex per trovare i link
       return text.split(urlRegex).map((part, index) => {

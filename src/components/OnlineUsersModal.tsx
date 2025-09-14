@@ -1,23 +1,18 @@
 // OnlineUsersModal.jsx
 import React, { useEffect, useState } from 'react';
 import { fetchWithPrefix } from '../utils/api';
+import { UserData } from '../types';
 
 interface OnlineUsersModalProps {
     onClose: () => void;
     userIds: number[];
-    onUserClicked: (user: User) => void;
-}
-
-interface User {
-  id: number;
-  nickname: string;
-  subscription?: string;
+    onUserClicked: (user: UserData) => void;
 }
   
   
 const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({userIds, onClose, onUserClicked }) => {
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
