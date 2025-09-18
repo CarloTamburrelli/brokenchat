@@ -12,7 +12,9 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import CameraCapture from "./CameraCapture";
 import microphoneIcon from "../assets/audio.png";
+import videoIcon from "../assets/video.png";
 import { MessageData, PrivateUserData } from "../types";  
+import { MAX_PRIVATE_ROOM_MESSAGE } from "../utils/consts";
 
 
 const PrivateChatPage = () => {
@@ -241,7 +243,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
     socket.emit('private-message', conversationId, newMessage);
   };
 
-  const sendPhotoMessage = (base64Image: string) => {
+  const sendFileMessage = (type: 3 | 4, file: string) => {
     const newMessage: {
       user_id: number | null;
       nickname: string;
@@ -252,9 +254,9 @@ const onLongPress = (e: any, msg_id: number | string) => {
     } = {
       user_id: authUser!.id,
       nickname: authUser!.nickname,
-      text: base64Image,
+      text: file,
       alert_message: false,
-      msg_type: 3, // tipo immagine
+      msg_type: type,
       target_id: targetUser!.id,
     };
 
@@ -692,6 +694,13 @@ const onLongPress = (e: any, msg_id: number | string) => {
                 />
               )}
 
+              {msg.quoted_msg.msg_type === 4 && (
+                <img
+                  src={videoIcon}
+                  alt="quoted video"
+                  className="w-24 h-24 object-cover rounded"
+                />
+              )}
 
             </div>
           )}
@@ -737,6 +746,22 @@ const onLongPress = (e: any, msg_id: number | string) => {
                   />
                 </div>
               )}
+              {msg.msg_type === 4 && (() => {
+                const [videoUrl, thumbUrl] = msg.message!.split("####");
+
+                return (
+                  <div className="mt-2">
+                    <video
+                      src={videoUrl}
+                      controls
+                      poster={thumbUrl} 
+                      className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                    >
+                      Il tuo browser non supporta l'elemento video.
+                    </video>
+                  </div>
+                );
+              })()}
               {isLastMessage && msg.date && (
                 <div className={`text-xs  mt-1 ${msg.user_id === authUser!.id ? "text-right text-gray-200" : "text-left text-gray-400"}`}>
                   {new Date(msg.date).toLocaleString('en-US', {
@@ -952,7 +977,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
           <h2 className="text-lg font-semibold mb-2">
             Private chat with <span className="text-2xl">{targetUser?.nickname}</span>
           </h2>
-          <p className="text-sm italic">Only the last 50 messages are saved in the chat.</p>
+          <p className="text-sm italic">Only the last {MAX_PRIVATE_ROOM_MESSAGE} messages are saved in the chat.</p>
         </div>
 
         {messages.map((msg, index) => (
@@ -1047,6 +1072,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
               <img src={quotedMessage.message!} alt="Image" className="w-12 h-12" />
             )}
 
+            {(quotedMessage.msg_type == 4) && (
+              <img src={videoIcon} alt="Video" className="w-12 h-12" />
+            )}
+
           </span>
         
           {/* Pulsante per rimuovere la citazione */}
@@ -1117,7 +1146,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
       {message.trim().length === 0 && (
         <div className="flex items-center gap-2">
           <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
-          <CameraCapture onSendPhoto={sendPhotoMessage} />
+          <CameraCapture onSendFile={sendFileMessage} resourceId={conversationId} resourceType="conversations"/>
         </div>
       )}
     </div>

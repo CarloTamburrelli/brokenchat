@@ -9,6 +9,14 @@ const { sendPushNotification } = require('./web_push');
 const crypto = require('crypto');
 const Groq = require('groq-sdk');
 const bots = require('./bots');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { execFile } = require("child_process");
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
+
 require('./cronjobs/cleaner.js');
 
 const GROQ_KEYS = [
@@ -16,6 +24,8 @@ const GROQ_KEYS = [
   process.env.GROQ_API_KEY_2,
   process.env.GROQ_API_KEY_3,
 ];
+
+const GLOBAL_CHAT_ID = Number(process.env.GLOBAL_CHAT_ID);
 
 let currentKeyIndex = 0;
 
@@ -34,8 +44,9 @@ function normalizeIp(ip) {
 }
 
 const redisClient = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: process.env.REDIS_PORT || 6379
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  enableReadyCheck: false,
 });
 
 redisClient.flushall((err, res) => {
@@ -64,6 +75,19 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+const upload = multer({
+  limits: { fileSize: 1000 * 1024 * 1024 }, // 500 MB
+});
+
 // Middleware per il parsing del JSON
 app.use(cors());
 app.use(express.json());
@@ -73,14 +97,79 @@ app.set('trust proxy', true);
 redisClient.on("connect", () => console.log("🔥 Connesso a Redis!"));
 redisClient.on("error", (err) => console.error("❌ Errore Redis:", err));
 
+async function removeOldestMsgInRoom(
+  resourceId,
+  isPrivateMsg = false,
+) {
+  try {
+    const tableName = isPrivateMsg ? "messages" : "messages"; // usa lo stesso se vuoi, cambia se hai tabelle diverse
+    const columnId = isPrivateMsg ? "conversation_id" : "chat_id";
+    const maxMessages = isPrivateMsg ? 50 : 100;
+
+    // --- Controlla il numero di messaggi ---
+    const countRes = await pool.query(
+      `SELECT COUNT(*) FROM ${tableName} WHERE ${columnId} = $1`,
+      [resourceId]
+    );
+    let messageCount = parseInt(countRes.rows[0].count, 10);
+
+    // --- Rimuovi messaggi finché si supera la soglia ---
+    if (messageCount > maxMessages) {
+      // Prendi il messaggio più vecchio
+      const oldestMsgRes = await pool.query(`
+        SELECT id, msg_type, message 
+        FROM ${tableName} 
+        WHERE ${columnId} = $1
+        ORDER BY id ASC
+        LIMIT 1
+      `, [resourceId]);
+
+      if (oldestMsgRes.rows.length === 0) return;
+      const oldestMsg = oldestMsgRes.rows[0];
+
+      // --- Se è un video, cancella da S3 ---
+      if (oldestMsg.msg_type === 4 && oldestMsg.message) {
+        const [videoUrl, thumbUrl] = oldestMsg.message.split("####");
+
+        const videoKey = new URL(videoUrl).pathname.substring(1);
+        const thumbKey = new URL(thumbUrl).pathname.substring(1);
+
+        if (videoKey) {
+          await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: videoKey
+          }));
+        }
+
+        if (thumbKey) {
+          await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: thumbKey
+          }));
+        }
+      }
+
+      // --- Cancella il messaggio dal DB ---
+      await pool.query(`
+        DELETE FROM ${tableName}
+        WHERE id = $1
+      `, [oldestMsg.id]);
+
+      messageCount--;
+    }
+
+  } catch (err) {
+    console.error("Errore in removeOldestMsgInRoom:", err);
+  }
+}
+
+
 async function getGlobalChatName() {
 
   const cached = await redisClient.get(`global_chat_name`);
   if (cached) {
     return cached;
   }
-
-  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
 
   if (GLOBAL_CHAT_ID) {
     const result = await pool.query(
@@ -125,6 +214,8 @@ async function sendNotificationToUser(userId, nickname, message, conversation_id
       bodyText = "🎤 Audio sent";
     } else if (msg_type === 3) {
       bodyText = "🌅 Image sent";
+    } else if (msg_type === 4) {
+      bodyText = "🎥 Video sent";
     }
 
     // Costruzione del payload della notifica
@@ -273,8 +364,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 const getMyChats = async (token) => {
 
-  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
-
   const userChatsResult = await pool.query(
     `SELECT c.id, c.name, c.latitude, c.longitude, r.role_type, r.last_access, c.description 
      FROM chats c
@@ -307,9 +396,6 @@ const getMyChats = async (token) => {
 
 const getNearbyChats = async (token, lat, lon) => {
   try {
-      // Recupera tutte le chat dal database
-
-      const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
 
       const allChatsResult = await pool.query(
           `SELECT c.*, r.role_type, r.last_access
@@ -547,7 +633,6 @@ app.get('/get-user', async (req, res) => {
       [token]
     );
 
-    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
     let messagesResult = null;
     let total_users_global_chat = 0;
     let global_chat_name = 'Global Chat';
@@ -687,8 +772,6 @@ app.get('/get-user', async (req, res) => {
 
 // Funzione per ottenere le chat popolari
 const getPopularChats = async (token) => {
-
-  const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || -1;
 
   const allChatsResult = await pool.query(
     `SELECT c.id, c.name, c.description, r.role_type, r.last_access 
@@ -842,8 +925,7 @@ app.post('/chat/:chatId', async (req, res) => {
       [title, description, chatId]
     );
 
-    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
-    if (GLOBAL_CHAT_ID) {
+    if (GLOBAL_CHAT_ID === chatId) {
       await redisClient.set(`global_chat_name`, title);
     }
 
@@ -1350,6 +1432,90 @@ app.post('/get-recovery-profile', async (req, res) => {
 });
 
 
+app.post("/upload/:resourceId", upload.single("file"), async (req, res) => {
+  try {
+    const file = req.file;
+    const { resourceId } = req.params;
+    const folder = req.query.folder
+
+    if (!file) {
+      return res.status(400).json({ error: "Nessun file ricevuto" });
+    }
+
+    /* compressing video phase */
+    const timestamp = Date.now();
+    const tempInputPath = path.join("/tmp", `${timestamp}_${file.originalname}`);
+    const tempOutputPath = path.join("/tmp", `compressed_${timestamp}_${file.originalname}`);
+    const thumbnailPath = tempOutputPath.replace(/\.[^/.]+$/, ".jpg");
+
+    fs.writeFileSync(tempInputPath, file.buffer);
+
+    await new Promise((resolve, reject) => {
+      execFile(ffmpegPath, [
+        "-i", tempInputPath,
+        "-vf", "scale=-2:720",
+        "-c:v", "libx264",
+        "-b:v", "1M",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-t", "120", // max 2 minuti
+        tempOutputPath
+      ], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      execFile(ffmpegPath, [
+        "-i", tempOutputPath,
+        "-vf", "select='eq(n,32)'",
+        "-vframes", "1",
+        "-q:v", "2",
+        thumbnailPath
+      ], (err) => {
+        if (err) return reject(err);
+        resolve(null);
+      });
+    });
+
+    const videoBuffer = fs.readFileSync(tempOutputPath);
+    const thumbBuffer = fs.readFileSync(thumbnailPath);
+
+    /* end compressing video phase */
+
+    // Nome file con timestamp per evitare collisioni
+    const baseKey = folder === "conversations" ? `conversations/${resourceId}/` : `chats/${resourceId}/`;
+    const videoKey = `${baseKey}${timestamp}_${file.originalname}`;
+    const thumbKey = `${baseKey}${timestamp}_thumb.jpg`;
+
+    // Upload su S3
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: videoKey,
+      Body: videoBuffer,
+      ContentType: file.mimetype
+    }));
+
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: thumbKey,
+      Body: thumbBuffer,
+      ContentType: "image/jpeg"
+    }));
+
+    // URL pubblico del file
+    const video_url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${videoKey}`;
+    const thumb_url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${thumbKey}`;
+
+    return res.json({ url: `${video_url}####${thumb_url}`});
+  } catch (err) {
+    console.error("Errore upload S3:", err);
+    res.status(500).json({ error: "Errore upload S3" });
+  }
+});
+
+
 app.get("/conversation/:conversationId", async (req, res) => {
   const { conversationId } = req.params;
   const { token } = req.query;
@@ -1791,7 +1957,7 @@ io.on('connection', (socket) => {
       socket.userId = user_id;
       await redisClient.sadd('online', user_id);
     }
-    const GLOBAL_CHAT_ID = process.env.GLOBAL_CHAT_ID || false;
+
     if (GLOBAL_CHAT_ID) {
       socket.join(GLOBAL_CHAT_ID);
     }
@@ -1911,7 +2077,7 @@ io.on('connection', (socket) => {
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
 
-      const botIds = await redisClient.smembers(`bots_chat:${chatId}`);
+      /*const botIds = await redisClient.smembers(`bots_chat:${chatId}`);
 
       if (botIds && botIds.length > 0) {
 
@@ -1923,27 +2089,9 @@ io.on('connection', (socket) => {
             handleBotResponse(chatId, bot);
           }, delayMs);
         }
-      }
-  
-      // Controlla il numero di messaggi nella chat
-      const result = await pool.query(
-        'SELECT COUNT(*) FROM messages WHERE chat_id = $1',
-        [chatId]
-      );
-      const messageCount = parseInt(result.rows[0].count, 10);
-  
-      // Se ci sono più di 50 messaggi, elimina il primo
-      if (messageCount > 50) {
-        await pool.query(`
-          DELETE FROM messages
-          WHERE id = (
-            SELECT id FROM messages
-            WHERE chat_id = $1
-            ORDER BY id ASC
-            LIMIT 1
-          )`, [chatId]);
-        //console.log(`Il primo messaggio è stato eliminato dalla chat ${chatId}`);
-      }
+      }*/
+
+      await removeOldestMsgInRoom(chatId);
   
       console.log(`Messaggio inviato alla chat ${chatId}: ${newMessage}`);
     } catch (err) {
@@ -2058,26 +2206,8 @@ io.on('connection', (socket) => {
       newMessage.created_at = new Date();
       
       io.to(socket.conversationId).emit('broadcast_private_messages', newMessage);
-  
-      // Controlla il numero di messaggi nella chat
-      const result = await pool.query(
-        'SELECT COUNT(*) FROM messages WHERE conversation_id = $1',
-        [socket.conversationId]
-      );
-      const messageCount = parseInt(result.rows[0].count, 10);
-  
-      // Se ci sono più di 50 messaggi, elimina il primo
-      if (messageCount > 50) {
-        await pool.query(`
-          DELETE FROM messages
-          WHERE id = (
-            SELECT id FROM messages
-            WHERE conversation_id = $1
-            ORDER BY id ASC
-            LIMIT 1
-          )`, [socket.conversationId]);
-        console.log(`Il primo messaggio è stato eliminato dalla conversazione ${socket.conversationId}`);
-      }
+
+      await removeOldestMsgInRoom(socket.conversationId, true);
   
       console.log(`Messaggio inviato alla conversazione ${socket.conversationId}: ${newMessage}`);
     } catch (err) {

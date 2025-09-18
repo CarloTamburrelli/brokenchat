@@ -176,6 +176,15 @@ const PrivateMessages = () => {
                 </span>
               </div>
             )}
+            {conversation.last_message_type === 4 && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="text-lg">🎥</span>
+                <span className="text-gray-400 text-xs italic whitespace-nowrap flex items-center">
+                  <span className="mx-1">·</span>
+                  {formatDate(conversation.last_message_time)}
+                </span>
+              </div>
+            )}
           </div>
 
           {(conversation.distance!= null) && (<div className="text-right text-gray-500 flex flex-col items-end min-w-[50px]">

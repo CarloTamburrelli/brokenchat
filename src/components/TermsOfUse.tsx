@@ -7,11 +7,7 @@ const TermsOfUse: React.FC = () => {
   return (
     <div className="flex flex-col justify-center items-center max-w-3xl mx-auto">
       <Link to="/">
-        <img 
-          src={Logo} 
-          alt="Logo" 
-          className="w-32 sm:w-40 md:w-44 lg:w-48 xl:w-[170px] h-auto" 
-        />
+        <img src={Logo} className="w-3/4 sm:w-2/3 md:w-1/2 lg:w-1/3 h-auto mx-auto my-4"  />
       </Link>
 
       <div className="max-w-3xl mx-auto px-4 py-10 text-gray-800">

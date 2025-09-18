@@ -36,7 +36,7 @@ const RecoveryProfile: React.FC = () => {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       <Link to="/" className="flex justify-center items-center">
-        <img src={Logo} alt="Logo" />
+        <img src={Logo} className="w-3/4 sm:w-2/3 md:w-1/2 lg:w-1/3 h-auto mx-auto my-4"  />
       </Link>
 
       <h2 className="text-center text-2xl font-semibold mt-5 font-mono">Profile Recovery</h2>

@@ -32,6 +32,10 @@ export const welcomeMessages = [
   "È andata Tamalio 👨‍🦱"
 ];
 
+export const VIDEO_MAX_DURATION_SECONDS = 120; // 2 min
+export const MAX_PUBLIC_ROOM_MESSAGE = 100; 
+export const MAX_PRIVATE_ROOM_MESSAGE = 50;
+
   
   
   

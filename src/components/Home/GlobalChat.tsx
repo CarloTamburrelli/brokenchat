@@ -2,6 +2,7 @@ import React from "react";
 import { MessageData } from "../../types";
 import { generateColorFromId } from '../../utils/generateColorFromId';
 import microphoneIcon from "../../assets/audio.png";
+import videoIcon from "../../assets/video.png";
 
 interface GlobalChatProps {
   globalMessages: MessageData[],
@@ -134,6 +135,11 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ globalMessages, totalUsersGloba
                     alt="sent"
                     className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
                   />
+                </div>
+              )}
+              {msg.msg_type === 4 && (
+                <div className="mt-2">
+                  <img src={videoIcon} alt="Video" className="w-12 h-12" />
                 </div>
               )}
             </div>

@@ -23,37 +23,12 @@ import LoadingSpinner from './LoadingSpinner';
 import usePushNotifications from '../utils/usePushNotifications';
 import CameraCapture from './CameraCapture';
 import microphoneIcon from "../assets/audio.png";
+import videoIcon from "../assets/video.png";
 import { getPosition } from '../utils/geolocation';
 import { generateColorFromId } from '../utils/generateColorFromId';
+import { ChatData, MessageData, UserData } from '../types';
+import { MAX_PUBLIC_ROOM_MESSAGE } from '../utils/consts';
 
-
-
-type MessageData = {
-  id:  number | string;
-  nickname: string | null;
-  message: string | null;
-  alert_message: boolean;
-  msg_type: number;
-  date: string | null;
-  user_id: number | null;
-  quoted_msg: MessageData | null;
-  delete_chat: boolean | null;
-};
-
-
-interface ChatData {
-  name: string;
-  isPrivate: boolean;
-  description: string;
-  created_at: string;
-  am_i_admin: number;
-}
-
-interface ProfileUser { 
-  id: number;
-  nickname: string;
-  subscription: string;
-}
 
 function BaseWaiting(content: React.ReactNode) {
   return <div className="flex flex-col justify-center items-center mt-5">
@@ -75,13 +50,15 @@ function ChatPage() {
   const [, setIsAtBottom] = useState(true);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const { chatId } = useParams();
+
+  const paramsChatPage = useParams<{ chatId?: string }>();
+  const chatId: number | null = paramsChatPage.chatId ? parseInt(paramsChatPage.chatId, 10) : null;
   const [message, setMessage] = useState<string>('');
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [nickname, setNickname] = useState<string>('');
   const [userId, setUserId] = useState<number | null>(null);
-  const [admin, setAdmin] = useState<ProfileUser | null>(null);
-  const [profileToShow, setProfileToShow] = useState<ProfileUser | null>(null);
+  const [admin, setAdmin] = useState<UserData | null>(null);
+  const [profileToShow, setProfileToShow] = useState<UserData | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [validUsername, setValidUsername] = useState<boolean>(false);
@@ -556,7 +533,7 @@ function ChatPage() {
     socket.emit('message', chatId, newMessage, userId);
   };
 
-  const sendPhotoMessage = (base64Image: string) => {
+  const sendFileMessage = (type: 3 | 4, file: string) => {
     const newMessage: {
       user_id: number | null;
       nickname: string;
@@ -566,9 +543,9 @@ function ChatPage() {
     } = {
       user_id: userId,
       nickname: nickname,
-      text: base64Image,
+      text: file,
       alert_message: false,
-      msg_type: 3, // tipo immagine
+      msg_type: type
     };
 
     socket.emit('message', chatId, newMessage, userId);
@@ -960,6 +937,14 @@ function ChatPage() {
               )}
 
 
+              {msg.quoted_msg.msg_type === 4 && (
+                <img
+                  src={videoIcon}
+                  alt="quoted video"
+                  className="w-24 h-24 object-cover rounded"
+                />
+              )}
+
             </div>
           )}
 
@@ -1004,6 +989,23 @@ function ChatPage() {
                   />
                 </div>
               )}
+              {msg.msg_type === 4 && (() => {
+                const [videoUrl, thumbUrl] = msg.message!.split("####");
+
+                return (
+                  <div className="mt-2">
+                    <video
+                      src={videoUrl}
+                      controls
+                      poster={thumbUrl} 
+                      className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                    >
+                      Il tuo browser non supporta l'elemento video.
+                    </video>
+                  </div>
+                );
+              })()}
+
               {isLastMessage && msg.date && (
                 <div className={`text-xs  mt-1 ${msg.user_id === userId ? "text-right text-gray-200" : "text-left text-gray-400"}`}>
                   {new Date(msg.date).toLocaleString('en-US', {
@@ -1187,9 +1189,18 @@ function ChatPage() {
 {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4">
         <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl">
-        <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-center">
-          Choose a nickname to join the chat:
-        </h2>
+        <div className="flex justify-center mb-4">
+        <img
+          src={Logo}
+          className="w-32 sm:w-40 md:w-48 lg:w-56 h-auto"
+          alt="Brokenchat Logo"
+        />
+      </div>
+
+      <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-center">
+        Choose a nickname to join the chat:
+      </h2>
+
 
           <span className="block mt-2 text-center">
           {chatData?.name}
@@ -1263,7 +1274,7 @@ function ChatPage() {
       {(isChatLocked == false) && (<div className="bg-blue-300 text-white p-6 rounded-b-lg">
         <h2 className="text-2xl font-semibold mb-2">{chatData?.name}</h2>
         <p className="text-lg mb-4">{chatData?.description}</p>
-        <p className="text-sm italic">Only the last 100 messages are saved in the chat.</p>
+        <p className="text-sm italic">Only the last {MAX_PUBLIC_ROOM_MESSAGE} messages are saved in the chat.</p>
       </div>)}
       {messages.map((msg, index) => (
         renderMessage(msg, index)
@@ -1327,6 +1338,10 @@ function ChatPage() {
 
               {(quotedMessage.msg_type == 3) && (
                 <img src={quotedMessage.message!} alt="Image" className="w-12 h-12" />
+              )}
+
+              {(quotedMessage.msg_type == 4) && (
+                <img src={videoIcon} alt="Video" className="w-12 h-12" />
               )}
               </span>
             
@@ -1395,7 +1410,7 @@ function ChatPage() {
   {message.trim().length === 0 && (
     <div className="flex items-center gap-2">
       <AudioRecorderModal onAudioRecorded={handleAudioRecorded} />
-      <CameraCapture onSendPhoto={sendPhotoMessage} />
+      <CameraCapture onSendFile={sendFileMessage} resourceId={chatId} resourceType="chats"/>
     </div>
   )}
 </div>

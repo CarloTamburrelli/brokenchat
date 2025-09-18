@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import send from '../assets/send.png';
 import cameraIcon from "../assets/camera.png"; 
+import { fetchWithPrefix } from '../utils/api';
+import { checkValidityDuration } from '../utils/Video/checkValidityDuration';
 
-export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: string) => void }) {
+interface CameraCaptureProps {
+  onSendFile: (type: 3 | 4, file: string) => void;
+  resourceId: number | null;
+  resourceType: 'chats' | 'conversations';
+}
+
+export default function CameraCapture({ onSendFile, resourceId, resourceType }: CameraCaptureProps) {
 
   const [image, setImage] = useState<string | null>(null);
+  const [video, setVideo] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,25 +65,76 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
     if (file) {
       setIsLoading(true);
       setShowModal(true);
+
+      if (file.type.startsWith('image/')) {
   
-      resizeAndConvertToBase64(file)
-        .then((base64Image: string) => {
-          setImage(base64Image);
-        })
-        .catch((err: any) => {
-          console.error('Errore nella riduzione immagine:', err);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+        resizeAndConvertToBase64(file)
+          .then((base64Image: string) => {
+            setImage(base64Image);
+          })
+          .catch((err: any) => {
+            console.error('Errore nella riduzione immagine:', err);
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
+
+      } else if (file.type.startsWith('video/')) {
+        const videoURL = URL.createObjectURL(file);
+        setVideo(videoURL);
+        setIsLoading(false);
+      }
   
       // 🧼 Reset dell'input per permettere future selezioni dello stesso file
       event.target.value = '';
     }
   };
 
+  const onSendVideo = async () => {
+
+    if (!resourceId) {
+      alert("You cannot send media files as the first private message")
+      return;
+    }
+
+
+    if (!video) {
+      return;
+    }
+    setIsLoading(true);
+    
+    const blob = await fetch(video).then(r => r.blob());
+    const file = new File([blob], "video.mp4", { type: blob.type });
+
+    if (!await checkValidityDuration(file)) {
+      alert("Video too long: max 2 mins duration.")
+      closeModal();
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+
+      const response_json = await fetchWithPrefix(`/upload/${resourceId}?folder=${resourceType}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      setIsLoading(false);
+      onSendFile(4, response_json.url);
+
+    } catch (err) {
+      console.error("Error uploading video:", err);
+      alert("Error uploading video")
+    }
+
+    closeModal();
+  }
+
   const closeModal = () => {
     setShowModal(false);
+    setVideo(null);
     setImage(null);
     setIsLoading(false);
   };
@@ -92,7 +152,7 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
       <input
         id="gallery-input"
         type="file"
-        accept="image/*"
+        accept="video/*,image/*,android/allowCamera"
         onChange={selectImageFromGallery}
         className="hidden"
       />
@@ -101,7 +161,9 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
         <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 shadow-lg relative w-96">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-800">Photo Preview</h2>
+              <h2 className="text-lg font-bold text-gray-800">{
+                image !== null ? 'Photo' : 'Video'
+                } preview</h2>
               <button
                 onClick={closeModal}
                 className="text-gray-500 hover:text-black text-2xl font-semibold"
@@ -110,11 +172,29 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
               </button>
             </div>
 
-            <div className="flex justify-center items-center min-h-[200px]">
+            <div className="flex flex-col justify-center items-center min-h-[200px]">
               {isLoading ? (
+                <>
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-500" />
+                {video && <div className="text-gray-600 text-sm">Uploading video, please wait...</div>}
+                </>
               ) : (
-                image && <img src={image} alt="Selected" className="w-full h-auto max-h-[60vh] rounded object-contain" />
+                <>
+                  {image && (
+                    <img
+                      src={image}
+                      alt="Selected"
+                      className="w-full h-auto max-h-[60vh] rounded object-contain"
+                    />
+                  )}
+                  {video && (
+                    <video
+                      src={video}
+                      controls
+                      className="w-full max-h-[60vh] rounded"
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -129,8 +209,10 @@ export default function CameraCapture({ onSendPhoto }: { onSendPhoto: (img: stri
                 <button
                   onClick={() => {
                     if (image) {
-                      onSendPhoto(image);
+                      onSendFile(3, image);
                       closeModal();
+                    } else if (video) {
+                      onSendVideo();
                     }
                   }}
                   className="bg-blue-500 text-white px-6 py-2 rounded-md flex items-center gap-2"

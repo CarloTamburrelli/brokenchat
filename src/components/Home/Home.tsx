@@ -172,6 +172,8 @@ export default function Home() {
       setGlobalChatName(response.global_chat_name);
     }
 
+    socket.off('broadcast_messages');
+
     socket.on('broadcast_messages', (newMessage) => {
       setGlobalMessages((prevMessages) => [
             ...prevMessages,
@@ -187,6 +189,14 @@ export default function Home() {
               msg_type: newMessage.msg_type
             },
           ]);
+    });
+
+    socket.off('banned');
+
+    socket.on('banned', ({ }) => {
+      socket.off('join-room');
+      socket.off('broadcast_messages');
+      socket.off('alert_message');
     });
 
       if ('unread_private_messages_count' in response) {
@@ -353,7 +363,7 @@ export default function Home() {
     </div>
 
     {/* Global Chat al centro su desktop */}
-    <div className="hidden md:flex flex-1 pr-8 pt-3">
+    <div className="hidden md:flex flex-1 pr-8 pt-4">
       <GlobalChat globalChatName={globalChatName} globalMessages={globalMessages} totalUsersGlobalChat={totalUsersGlobalChat} />
     </div>
 
@@ -373,7 +383,7 @@ export default function Home() {
   </div>
 
   {/* CHAT */}
-  <div className="justify-center mt-4 md:mt-0 md:ml-4 block md:hidden mx-2">
+  <div className="justify-center mt-1 md:ml-4 block md:hidden mx-2">
     <GlobalChat globalChatName={globalChatName} globalMessages={globalMessages} totalUsersGlobalChat={totalUsersGlobalChat} />
   </div>
 

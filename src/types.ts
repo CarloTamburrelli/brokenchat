@@ -72,3 +72,12 @@ export interface ChatDataForm {
 }
 
 /* end forms */
+
+
+export interface ChatData {
+  name: string;
+  isPrivate: boolean;
+  description: string;
+  created_at: string;
+  am_i_admin: number;
+}

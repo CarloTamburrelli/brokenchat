@@ -27,7 +27,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
         <div className="w-full">
           {Object.entries(nearbyChats).map(([groupId, chatList]) => (
             <div key={groupId} className="w-full flex relative">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
+              <div className="absolute top-0 left-0 w-full h-px bg-gray-400 pointer-events-none" />
               {/* Div sinistro con la lista delle chat */}
               <div className="flex-1 flex flex-col space-y-4 ">
                   {chatList.map((chat: any) => (
@@ -53,7 +53,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
                   ))}
               </div>
               {/* Div destro con la distanza */}
-              <div className="w-1/4 ml-2 pt-2 sticky h-12" style={{ top: `${headerHeight}px` }}>
+              <div className="w-1/4 ml-2 pt-3 sticky h-12" style={{ top: `${headerHeight}px` }}>
                 <h2 className="text-lg font-bold">
                   {groupId} km
                 </h2>
@@ -76,8 +76,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
         <div className="w-full">
           {popularChats.map((chat) => (
             <div key={chat.id} className="w-full flex relative">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
-              
+              <div className="absolute top-0 left-0 w-full h-px bg-gray-400 pointer-events-none" />
               {/* Contenitore della chat */}
               <div className="flex-1 flex flex-col space-y-4">
               <Link to={`/chat/${chat.id}`}>
@@ -117,8 +116,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
         <div className="w-full">
           {myChats.map((chat) => (
             <div key={chat.id} className="w-full flex relative">
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent pointer-events-none" />
-              
+              <div className="absolute top-0 left-0 w-full h-px bg-gray-400 pointer-events-none" />
               {/* Contenitore della chat */}
               <div className="flex-1 flex flex-col space-y-4">
                 <Link to={`/chat/${chat.id}`}>
