@@ -13,8 +13,10 @@ import { fetchFile } from '@ffmpeg/util';
 import CameraCapture from "./CameraCapture";
 import microphoneIcon from "../assets/audio.png";
 import videoIcon from "../assets/video.png";
-import { MessageData, PrivateUserData } from "../types";  
+import { MessageData, PrivateUserData, UserData } from "../types";  
 import { MAX_PRIVATE_ROOM_MESSAGE } from "../utils/consts";
+import { ReportModal } from "./ReportModal";
+import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 
 
 const PrivateChatPage = () => {
@@ -43,6 +45,7 @@ const PrivateChatPage = () => {
   const [clickedIndex, setClickedIndex] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState<MessageData | UserData | null>(null);
   const [firstLoad, setFirstLoad] = useState(true);
   const token = localStorage.getItem('authToken');
   let alreadyJoined = false;
@@ -344,43 +347,6 @@ const onLongPress = (e: any, msg_id: number | string) => {
       });
   };
 
-    const handleReport = async (msg: MessageData) => {
-      if (!window.confirm("Are you sure you want to report this user?")) return;
-  
-  
-      const token = localStorage.getItem('authToken');
-  
-      if (token == null) {
-        return;
-      }
-  
-      try {
-          const response_json = await fetchWithPrefix(`/report`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                reporter_id: authUser!.id,
-                reported_user_id: msg.user_id,
-                conversation_id: conversationId,
-                message: msg.message, 
-                token,
-              }),
-            }
-          );
-          setShowToastMessage(response_json.message);
-          setTimeout(() => setShowToastMessage(null), 3000);
-  
-      } catch (error) {
-          console.error("Error reporting user:", error);
-          setShowToastMessage("An error occurred while reporting the user");
-          setTimeout(() => setShowToastMessage(null), 3000);
-      }
-      handleDeselect()
-    };
-
   const sendMessage = async () => {
       if (message.trim()) {
   
@@ -629,12 +595,12 @@ const onLongPress = (e: any, msg_id: number | string) => {
               <button className="text-sm text-red-400 px-2"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleReport(msg);
+                  setReportOpen(msg);
                 }}
               
                 onTouchStart={(e) => {
                   e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
-                  handleReport(msg); // Deselect il messaggio
+                  setReportOpen(msg); // Deselect il messaggio
                 }}
               
               >
@@ -846,6 +812,31 @@ const onLongPress = (e: any, msg_id: number | string) => {
               {targetUser.distance} km
             </button>
           ) : null}
+
+          <Menu as="div" className="relative inline-block text-left">
+            <MenuButton className="flex flex-col justify-center items-center w-6 h-6 space-y-0.5">
+              <span className="w-1.5 h-1.5 bg-black rounded-full"></span>
+              <span className="w-1.5 h-1.5 bg-black rounded-full"></span>
+              <span className="w-1.5 h-1.5 bg-black rounded-full"></span>
+            </MenuButton>
+
+            <MenuItems className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded shadow-lg focus:outline-none z-50">
+              <MenuItem>
+                {({ active }) => (
+                  <button
+                    onClick={() => setReportOpen(targetUser)} // <-- qui apri la tua modal di report
+                    className={`block w-full text-left px-4 py-2 text-sm ${
+                      active ? "bg-gray-100 text-gray-900" : "text-gray-700"
+                    }`}
+                  >
+                    Report user
+                  </button>
+                )}
+              </MenuItem>
+            </MenuItems>
+          </Menu>
+
+
         </div>
       </div>
 
@@ -1048,6 +1039,20 @@ const onLongPress = (e: any, msg_id: number | string) => {
         </div>
       </div>
     )}
+
+    <ReportModal
+      reporterId={authUser !== null ? authUser.id : null}
+      resourceId={conversationId}
+      onClose={(msg) => {
+        if (msg) {
+          setShowToastMessage(msg);
+          setTimeout(() => setShowToastMessage(null), 3000);
+        }
+        setReportOpen(null)
+      }}
+      reportItem={reportOpen}
+      baseReport={"conversation"}
+    />
       
 
         {/* Barra chat input - Sempre fissa in basso */}

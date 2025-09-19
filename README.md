@@ -7,7 +7,6 @@ Geolocalized chat system that finds the closest chats in your area.
 
 ## TODO - nuovo Broken Chat
 
-- Sistema segnalazione, spiegare meglio il tipo di segnalazione che si vuole fare, campo di testo ecc
 - Sistema automatico di scarto contenuti con Nudenet, tramite un container a parte che faccia questo controllo.
   - qui il sistema automatico controllerà in background ogni messaggio inviato dalla piattaforma e provvederà alla sua rimozione in un secondo momento qualora vedesse nudità
 - Criptaggio informazioni per chat private
@@ -40,6 +39,15 @@ GLOBAL_CHAT_ID=36  # ID della chat globale
 
 devi aggiungere i dati del .env di AWS al .env di produzione!
 Poi devi anche fare: npm install così scarica le due librerie 'aws-sdk' e 'multer'.
+
+### 4) Task dei Report
+
+``` SQL
+ALTER TABLE reports
+ADD COLUMN type VARCHAR(50) NOT NULL DEFAULT 'other', -- tipo di report (spam, violento, altro…)
+ADD COLUMN description TEXT NULL;                     -- testo libero opzionale inserito dall'utente
+```
+
 
 ## Extra TODO
   *FOR APP*

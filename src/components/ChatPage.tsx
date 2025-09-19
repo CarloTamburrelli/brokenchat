@@ -6,6 +6,7 @@ import Logo from '../assets/logo.png';
 import { fetchWithPrefix } from '../utils/api';
 import { formatDate } from '../utils/formatDate';
 import chat_now from '../assets/chat_now.png';
+import report from '../assets/report.png';
 import send from '../assets/send.png';
 import { socket } from "../utils/socket"; // Importa il socket
 import UserListModal from './UserListModal';
@@ -28,6 +29,7 @@ import { getPosition } from '../utils/geolocation';
 import { generateColorFromId } from '../utils/generateColorFromId';
 import { ChatData, MessageData, UserData } from '../types';
 import { MAX_PUBLIC_ROOM_MESSAGE } from '../utils/consts';
+import { ReportModal } from './ReportModal';
 
 
 function BaseWaiting(content: React.ReactNode) {
@@ -50,7 +52,6 @@ function ChatPage() {
   const [, setIsAtBottom] = useState(true);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-
   const paramsChatPage = useParams<{ chatId?: string }>();
   const chatId: number | null = paramsChatPage.chatId ? parseInt(paramsChatPage.chatId, 10) : null;
   const [message, setMessage] = useState<string>('');
@@ -77,6 +78,7 @@ function ChatPage() {
   const [isBanned, setIsBanned] = useState(false);
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
+  const [reportOpen, setReportOpen] = useState<MessageData | UserData | null>(null);
 
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
@@ -705,46 +707,6 @@ function ChatPage() {
       alert("Failed to unban user.");
     }
   };
-  
-
-
-  const handleReport = async (msg: MessageData) => {
-    if (!window.confirm("Are you sure you want to report this user?")) return;
-
-
-    const token = localStorage.getItem('authToken');
-
-    if (token == null) {
-      return;
-    }
-
-    try {
-        const response_json = await fetchWithPrefix(`/report`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              reporter_id: userId,
-              reported_user_id: msg.user_id,
-              chat_id: chatId,
-              message: msg.message, 
-              token,
-            }),
-          }
-        );
-        setShowToastMessage(response_json.message);
-        setTimeout(() => setShowToastMessage(null), 3000);
-
-    } catch (error) {
-        console.error("Error reporting user:", error);
-        setShowToastMessage("An error occurred while reporting the user");
-        setTimeout(() => setShowToastMessage(null), 3000);
-    }
-    handleDeselect()
-  };
-
 
   const renderMessage = (msg: MessageData, index: number) => {
 
@@ -854,12 +816,14 @@ function ChatPage() {
               <button className="text-sm text-red-400 px-2"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleReport(msg);
+                  setReportOpen(msg);
+                  //handleReport(msg);
                 }}
               
                 onTouchStart={(e) => {
                   e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
-                  handleReport(msg); // Deselect il messaggio
+                  setReportOpen(msg);
+                  //handleReport(msg); // Deselect il messaggio
                 }}
               
               >
@@ -1076,7 +1040,7 @@ function ChatPage() {
 
 {profileToShow && (
         <div
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-30"
+        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
         onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
       >
         <div
@@ -1113,15 +1077,17 @@ function ChatPage() {
                 className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center space-x-2"
               >
                 <img src={ban_user_w} alt="Ban Icon" className="w-5 h-5" />
-                <span>Ban</span>
               </button>
             )}
           </>
           )}
+            <button onClick={() => setReportOpen(profileToShow)} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-800 flex items-center justify-center space-x-2">
+                <img src={report} alt="Re Icon" className="w-5 h-5" />
+            </button>
             <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
               <Link to={`/private-messages/new/${profileToShow.id}?goback=${chatId}`} className="flex items-center space-x-2">
                 <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
-                <span>Private message</span>
+                <span className="text-sm whitespace-nowrap">Private message</span>
               </Link>
             </button>
           </div>
@@ -1137,6 +1103,21 @@ function ChatPage() {
     </div>
   </div>
 )}
+
+<ReportModal
+  reporterId={userId}
+  resourceId={chatId}
+  onClose={(msg) => {
+    if (msg) {
+      setShowToastMessage(msg);
+      setTimeout(() => setShowToastMessage(null), 3000);
+    }
+    setProfileToShow(null);
+    setReportOpen(null)
+  }}
+  reportItem={reportOpen}
+  baseReport={"chat"}
+/>
 
 
 <UserListModal

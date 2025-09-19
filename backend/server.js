@@ -507,15 +507,24 @@ app.post("/register-webpush", async (req, res) => {
 });
 
 
-
 app.post("/report", async (req, res) => {
   try {
-    const { reporter_id, reported_user_id, chat_id, conversation_id, message, token } = req.body;
+    const { 
+      reporter_id, 
+      reported_user_id, 
+      type, 
+      description, 
+      message, 
+      token, 
+      resource_id, 
+      baseReport 
+    } = req.body;
 
-    if (!reporter_id || !reported_user_id || !message) {
+    if (!reporter_id || !reported_user_id || !type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Check utente valido
     const userCheck = await pool.query(
       "SELECT id FROM users WHERE id = $1 AND token = $2",
       [reporter_id, token]
@@ -525,25 +534,38 @@ app.post("/report", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized: Invalid user or token" });
     }
 
-    if (chat_id) {
+    // 1️⃣ Report messaggio in chat
+    if (baseReport === "chat" && resource_id) {
       await pool.query(
-        "INSERT INTO reports (reporter_id, reported_user_id, chat_id, message) VALUES ($1, $2, $3, $4)",
-        [reporter_id, reported_user_id, chat_id, message]
+        `INSERT INTO reports (reporter_id, reported_user_id, chat_id, message, type, description) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [reporter_id, reported_user_id, resource_id, message, type, description]
       );
-    } else if (conversation_id) {
+    } 
+    // 2️⃣ Report messaggio in conversazione
+    else if (baseReport === "conversation" && resource_id) {
       await pool.query(
-        "INSERT INTO reports (reporter_id, reported_user_id, conversation_id, message) VALUES ($1, $2, $3, $4)",
-        [reporter_id, reported_user_id, conversation_id, message]
+        `INSERT INTO reports (reporter_id, reported_user_id, conversation_id, message, type, description) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [reporter_id, reported_user_id, resource_id, message, type, description]
       );
-    } else {
-      return res.status(401).json({ message: "Chat id or conversation id no set" });
+    } 
+    // 3️⃣ Report utente puro (senza chat o conversazione)
+    else if (!resource_id) {
+      await pool.query(
+        `INSERT INTO reports (reporter_id, reported_user_id, type, description) 
+         VALUES ($1, $2, $3, $4)`,
+        [reporter_id, reported_user_id, type, description]
+      );
+    } 
+    else {
+      return res.status(400).json({ error: "Invalid report payload" });
     }
 
-    
     res.json({ message: "Report successfully submitted" });
   } catch (error) {
-      console.error("Error reporting message:", error);
-      res.status(500).json({ error: "Internal server error" });
+    console.error("Error reporting:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
