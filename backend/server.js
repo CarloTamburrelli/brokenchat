@@ -147,6 +147,16 @@ async function removeOldestMsgInRoom(
             Key: thumbKey
           }));
         }
+      } else if (oldestMsg.msg_type === 3 && oldestMsg.message) {
+        const imageKey = new URL(oldestMsg.message).pathname.substring(1);
+
+        if (imageKey) {
+          await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: imageKey
+          }));
+        }
+
       }
 
       // --- Cancella il messaggio dal DB ---
@@ -1453,8 +1463,43 @@ app.post('/get-recovery-profile', async (req, res) => {
   }
 });
 
+app.post("/upload-image/:resourceId", upload.single("file"), async (req, res) => {
+  try {
+    const file = req.file;
+    const { resourceId } = req.params;
+    const folder = req.query.folder;
 
-app.post("/upload/:resourceId", upload.single("file"), async (req, res) => {
+    if (!file) {
+      return res.status(400).json({ error: "Nessun file ricevuto" });
+    }
+
+    // Costruisco la chiave S3
+    let base_key = `chats/${resourceId}/`;
+    if (folder === "conversations") {
+      base_key = `conversations/${resourceId}/`;
+    }
+
+    const key = `${base_key}${Date.now()}_${file.originalname}`;
+
+    // Upload diretto su S3
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+      Body: file.buffer, // già pronto
+      ContentType: file.mimetype
+    }));
+
+    // URL pubblico
+    const imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+    return res.json({ url: imageUrl });
+  } catch (err) {
+    console.error("Errore upload S3:", err);
+    return res.status(500).json({ error: "Errore durante l'upload" });
+  }
+});
+
+app.post("/upload-video/:resourceId", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
     const { resourceId } = req.params;

@@ -21,44 +21,54 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
     document.getElementById("gallery-input")?.click();
   };
 
-  const resizeAndConvertToBase64 = (file: File, maxWidth = 1280, maxHeight = 1280, quality = 0.7): Promise<string> => {
+  const resizeAndCompressImage = (
+    file: File,
+    maxWidth = 1280,
+    maxHeight = 1280,
+    quality = 0.7
+  ): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
-  
+
       reader.onload = (e) => {
         img.src = e.target?.result as string;
       };
-  
+
       img.onload = () => {
-        const canvas = document.createElement('canvas');
         let { width, height } = img;
-  
+
         // Calcola nuova dimensione proporzionale
         if (width > maxWidth || height > maxHeight) {
           const scale = Math.min(maxWidth / width, maxHeight / height);
           width *= scale;
           height *= scale;
         }
-  
+
+        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
-  
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject('Canvas not supported');
-  
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject("Canvas not supported");
+
         ctx.drawImage(img, 0, 0, width, height);
-  
-        // Converte in base64 JPEG con qualità compressa
-        const base64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(base64);
+
+        // Converte direttamente in Blob (jpeg compresso)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject("Errore nella compressione immagine");
+          },
+          "image/jpeg",
+          quality
+        );
       };
-  
+
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
-  
 
   const selectImageFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -67,28 +77,54 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
       setShowModal(true);
 
       if (file.type.startsWith('image/')) {
-  
-        resizeAndConvertToBase64(file)
-          .then((base64Image: string) => {
-            setImage(base64Image);
-          })
-          .catch((err: any) => {
-            console.error('Errore nella riduzione immagine:', err);
-          })
-          .finally(() => {
-            setIsLoading(false);
-          });
-
+        const imageURL = URL.createObjectURL(file);
+        setImage(imageURL);
       } else if (file.type.startsWith('video/')) {
         const videoURL = URL.createObjectURL(file);
         setVideo(videoURL);
-        setIsLoading(false);
       }
+      setIsLoading(false);
   
       // 🧼 Reset dell'input per permettere future selezioni dello stesso file
       event.target.value = '';
     }
   };
+
+  const onSendImage = async () => {
+  if (!resourceId) {
+    alert("You cannot send media files as the first private message");
+    return;
+  }
+
+  if (!image) return; // tieni il File originale nello state
+
+  setIsLoading(true);
+
+  try {
+
+    const blob = await fetch(image).then(r => r.blob());
+    const file = new File([blob], "image.jpg", { type: blob.type });
+    
+    const compressedBlob = await resizeAndCompressImage(file);
+    const compressedFile = new File([compressedBlob], "image.jpg", { type: "image/jpeg" });
+
+    const formData = new FormData();
+    formData.append("file", compressedFile);
+
+    const response_json = await fetchWithPrefix(`/upload-image/${resourceId}?folder=${resourceType}`, {
+      method: "POST",
+      body: formData,
+    });
+
+    onSendFile(3, response_json.url);
+  } catch (err) {
+    console.error("Error uploading image:", err);
+    alert("Error uploading image");
+  } finally {
+    setIsLoading(false);
+    closeModal();
+  }
+};
 
   const onSendVideo = async () => {
 
@@ -116,7 +152,7 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
     formData.append("file", file);
     try {
 
-      const response_json = await fetchWithPrefix(`/upload/${resourceId}?folder=${resourceType}`, {
+      const response_json = await fetchWithPrefix(`/upload-video/${resourceId}?folder=${resourceType}`, {
         method: "POST",
         body: formData,
       });
@@ -209,8 +245,7 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
                 <button
                   onClick={() => {
                     if (image) {
-                      onSendFile(3, image);
-                      closeModal();
+                      onSendImage();
                     } else if (video) {
                       onSendVideo();
                     }
