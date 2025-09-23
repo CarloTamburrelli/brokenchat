@@ -51,7 +51,7 @@ const BanAlert: React.FC<BanAlertProps> = ({
         <div className="flex flex-col items-start text-left">
   <span>Dear {nickname} (your IP: {ipAddress}),</span>
   <span>we have noticed that YOUR behavior does not comply with our terms of use. Please take this warning seriously to avoid a permanent ban.</span>
-  {banMessage && <span>{banMessage}</span>}
+  {banMessage && <span className="mt-2"><u>Warning reason: {banMessage}</u></span>}
 </div>
 
       </div>

@@ -28,3 +28,4 @@ dist-ssr
 
 # settings node
 backend/.env
+backend/moderation_worker/__pycache__/

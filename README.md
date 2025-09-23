@@ -7,9 +7,12 @@ Geolocalized chat system that finds the closest chats in your area.
 
 ## TODO - nuovo Broken Chat
 
-- Sistema automatico di scarto contenuti con Nudenet, tramite un container a parte che faccia questo controllo.
-  - qui il sistema automatico controllerà in background ogni messaggio inviato dalla piattaforma e provvederà alla sua rimozione in un secondo momento qualora vedesse nudità
+- Hai fatto il worker con python:
+  - fare sistema segnalazioni (se almeno 4 persone segnalano un contenuto, allora viene rimosso e il tipo ammonito e poi si aggiunge sempre una riga al db nella tabella delle violazioni )
+  - sistema ban per IP (è eccessivo e rischi di bannere gente non colpevole) e sistema ban perchè puoi contattare persone in privato anche se sei bannato!
+  - ricontrolla controllo numero violazioni, sembra siano necessarie piu' di 4 violazioni prima del ban
 - Criptaggio informazioni per chat private
+- AGGIUNGI AVATAR! :D
 
 ## Query SQL e TODO dopo il push
 
@@ -32,8 +35,6 @@ devi aggiungere nel file .env questa var:
 GLOBAL_CHAT_ID=36  # ID della chat globale
 ```
 
------post----
-- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
 
 ### 3) Task dei Video
 
@@ -48,6 +49,23 @@ ADD COLUMN type VARCHAR(50) NOT NULL DEFAULT 'other', -- tipo di report (spam, v
 ADD COLUMN description TEXT NULL;                     -- testo libero opzionale inserito dall'utente
 ```
 
+### 5) Task del NudeNet
+
+rimuovi il flag -u (CMD ["python", "-u", "worker.py"])
+
+
+``` SQL
+CREATE TABLE violations (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    violation VARCHAR(50) NOT NULL,   -- tipo: prohibited_content, spam, violent, ecc.
+    details JSONB,                    -- opzionale, contiene il JSON di NudeNet
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## POST BIG UPDATE
+- Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.
 
 ## Extra TODO
   *FOR APP*

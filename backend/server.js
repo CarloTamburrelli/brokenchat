@@ -15,6 +15,7 @@ const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const banned_words = require('./banned_words');
 
 
 require('./cronjobs/cleaner.js');
@@ -41,6 +42,12 @@ function normalizeIp(ip) {
     return ip.substring(7);
   }
   return ip;
+}
+
+function containsBannedWords(text) {
+  if (!text) return false;
+  const lowered = text.toLowerCase();
+  return banned_words.some(word => lowered.includes(word));
 }
 
 const redisClient = new Redis({
@@ -186,14 +193,14 @@ async function getGlobalChatName() {
       "SELECT name FROM chats WHERE id = $1 LIMIT 1",
       [GLOBAL_CHAT_ID]
     );
-    const chatName = result.rows[0]?.name || "Global Chat";
+    const chatName = result.rows[0]?.name || "";
 
     // Salvo in Redis senza scadenza (oppure con expire se preferisci)
     await redisClient.set(`global_chat_name`, chatName);
 
     return chatName;
   } else {
-    return "Global Chat";
+    return "";
   }
   
 }
@@ -267,6 +274,12 @@ app.post('/create-chat', async (req, res) => {
 
     if ((chatName && chatName.length < 5) || (description && description.length < 10)) {
       return res.status(400).json({ message: 'The chat name or description is not valid' });
+    }
+
+    if (containsBannedWords(chatName) || containsBannedWords(description)) {
+      return res.status(400).json({ 
+        message: "The chat name or description contains prohibited words" 
+      });
     }
 
     // Verifica se esiste già un utente con quel token
@@ -948,7 +961,13 @@ app.post('/chat/:chatId', async (req, res) => {
     `, [token, chatId]);
 
     if (result.rowCount === 0) {
-      return res.status(403).json({ error: 'Unauthorized: not admin of this chat.' });
+      return res.status(403).json({ message: 'Unauthorized: not admin of this chat.' });
+    }
+
+    if (containsBannedWords(title) || containsBannedWords(description)) {
+      return res.status(400).json({ 
+        message: "The chat name or description contains prohibited words" 
+      });
     }
 
     // Aggiorna la chat se il token è valido e l’utente è admin
@@ -1463,6 +1482,97 @@ app.post('/get-recovery-profile', async (req, res) => {
   }
 });
 
+app.post('/moderation/remove_message/', async (req, res) => {
+  const token = req.headers['authorization'];
+  if (token !== `Bearer ${process.env.SECRET_KEY}`) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const { job_data, violations } = req.body;
+
+    const { message_id, user_id, url_media, chat_id, type } = job_data;
+
+    if (type == "image") {
+      const imageKey = new URL(url_media).pathname.substring(1);
+
+      if (imageKey) {
+        await s3.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: imageKey
+        }));
+      }
+
+    } else if (type == "video") {
+
+      const [videoUrl, thumbUrl] = url_media.split("####");
+
+      const videoKey = new URL(videoUrl).pathname.substring(1);
+      const thumbKey = new URL(thumbUrl).pathname.substring(1);
+
+      if (videoKey) {
+        await s3.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: videoKey
+        }));
+      }
+
+      if (thumbKey) {
+        await s3.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: thumbKey
+        }));
+      }
+
+    } else {
+      throw new Error(`Unsupported media type: ${type}`); 
+    }
+
+    
+
+    await pool.query(
+      `DELETE FROM messages WHERE id = $1`,
+      [message_id]
+    );
+
+    const result = await pool.query(
+      `UPDATE users
+      SET ban_read = false,
+          ban_status = CASE 
+                          WHEN (SELECT COUNT(*) FROM violations WHERE user_id = $2) > 4 
+                          THEN 2 
+                          ELSE 1 
+                        END,
+          ban_message = $1
+      WHERE id = $2
+      RETURNING *`,
+      [
+        "You have uploaded prohibited content (violates our Terms & Conditions, Art. 2: Prohibited Content).",
+        user_id
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO violations (user_id, violation, details)
+       VALUES ($1, $2, $3)`,
+      [user_id, "prohibited_content", violations ? JSON.stringify(violations) : null]
+    );
+
+    io.to(chat_id).emit('alert_message', { banned_message_id: message_id });
+    const updatedUser = result.rows[0];
+    if (updatedUser.ban_status === 2) {
+      io.to(`user:${user_id}`).emit('banned', {
+        msg: "You have been banned from the chat",
+        chat_id: chat_id,
+      })
+    }
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("Moderation error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.post("/upload-image/:resourceId", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
@@ -1520,12 +1630,13 @@ app.post("/upload-video/:resourceId", upload.single("file"), async (req, res) =>
     await new Promise((resolve, reject) => {
       execFile(ffmpegPath, [
         "-i", tempInputPath,
-        "-vf", "scale=-2:720",
+        "-vf", "scale=-2:720",              // ridimensiona max a 720p
         "-c:v", "libx264",
-        "-b:v", "1M",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-t", "120", // max 2 minuti
+        "-preset", "ultrafast",             // velocizza l’encoding
+        "-crf", "28",                       // qualità media, file leggero
+        "-c:a", "copy",                     // non ricodifica audio
+        "-t", "120",                        // max 2 minuti
+        "-threads", "4",                    // sfrutta più core (opzionale)
         tempOutputPath
       ], (err) => {
         if (err) return reject(err);
@@ -2132,6 +2243,7 @@ io.on('connection', (socket) => {
 
   socket.on('message', async (chatId, newMessage, userId) => {
     try {
+        console.log("invio messaggio in chat con la socket....");
 
       const result_message = await pool.query(
         'INSERT INTO messages (chat_id, user_id, message, msg_type, quoted_message_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
@@ -2143,6 +2255,24 @@ io.on('connection', (socket) => {
       
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
+
+      if (newMessage.msg_type == 3) {
+        await redisClient.lpush('moderation_jobs_raw', JSON.stringify({ 
+          message_id: newMessage.id, 
+          url_media: newMessage.text, 
+          user_id: userId,
+          chat_id: chatId,
+          type: 'image',
+        }));
+      } else if (newMessage.msg_type == 4) {
+        await redisClient.lpush('moderation_jobs_raw', JSON.stringify({ 
+          message_id: newMessage.id, 
+          url_media: newMessage.text, 
+          user_id: userId,
+          chat_id: chatId,
+          type: 'video',
+        }));
+      }
 
       /*const botIds = await redisClient.smembers(`bots_chat:${chatId}`);
 

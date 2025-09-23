@@ -46,6 +46,23 @@ services:
     networks:
       - chat-net
 
+  moderation_worker:
+    build: ./backend/moderation_worker
+    container_name: moderation_worker
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_BACKEND_URL: ${VITE_SERVER_API_URL}
+      MODERATION_SECRET: ${SECRET_KEY}
+    volumes:
+      - ./backend/moderation_worker:/app
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - chat-net
+    restart: always
+
 volumes:
   postgres_data:
 

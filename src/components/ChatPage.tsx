@@ -35,7 +35,7 @@ import { ReportModal } from './ReportModal';
 function BaseWaiting(content: React.ReactNode) {
   return <div className="flex flex-col justify-center items-center mt-5">
         <Link to="/">
-          <img src={Logo} />
+          <img src={Logo} className="w-3/4 sm:w-2/3 md:w-1/2 lg:w-1/3 h-auto mx-auto my-4"  />
         </Link>
         <div className="mt-5">
         {content}
@@ -70,6 +70,7 @@ function ChatPage() {
   const [firstLoad, setFirstLoad] = useState(true);
   const [showInfoChatModal, setShowInfoChatModal] = useState(false);
   const [showUserListModal, setShowUserListModal] = useState(false);
+  const [bannedMessages, setBannedMessages] = useState<(number | string)[]>([]);
   const [usersList, setUsersList] = useState<string[]>([]);
   const [banUsersList, setBanUsersList] = useState<string[]>([]);
   const [isLoadingConverting, setIsLoadingConverting] = useState(false);
@@ -220,7 +221,7 @@ function ChatPage() {
         socket.off('banned');
 
         socket.on('banned', ({ chat_id }) => {
-          if (chatId === chat_id ) {
+          if (chatId == chat_id ) {
             socket.off('join-room');
             socket.off('broadcast_messages');
             socket.off('alert_message');
@@ -241,7 +242,12 @@ function ChatPage() {
 
         socket.on('alert_message', (data: any) => {
 
-          const { message, users, deleteChat, editChat} = data;
+          const { message, users, deleteChat, editChat, banned_message_id} = data;
+
+          if (banned_message_id != null) {
+            setBannedMessages(prev => [...prev, banned_message_id]);
+          }
+
           if (users != null) {
             setUsersList(users)
           }
@@ -638,7 +644,7 @@ function ChatPage() {
 
     } catch (error) {
       console.error("Errore nel salvataggio", error);
-      alert("Errore nel salvataggio della chat.");
+      alert(error);
     }
   };
 
@@ -920,55 +926,49 @@ function ChatPage() {
             `}
           >
 
-              {msg.msg_type === 1 && (
-                <span className={`relative z-15 no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
-                  {convertLinksToAnchors(msg.message!, msg.user_id === userId)}
-                </span>
-              )}
-
-              {msg.msg_type === 2 && (
-                <span className="ml-2">
-                  <audio controls style={{ display: 'inline' }}>
-                    <source src={`data:audio/mp3;base64,${msg.message}`} type="audio/mp3" />
-                    Il tuo browser non supporta l'elemento audio.
-                  </audio>
-                </span>
-              )}
-
-              {msg.msg_type === 3 && (
-                <div className="mt-2">
-                  <img
-                    src={`${msg.message}`}
-                    alt="sent"
-                    className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
-                    onClick={() => openImageModal(msg.message!)}
-                    onTouchEnd={() => {
-                      if (isScrolling) {
-                        return;
-                      }
-
-                      openImageModal(msg.message!) 
-                    
-                    }}
-                  />
-                </div>
-              )}
-              {msg.msg_type === 4 && (() => {
-                const [videoUrl, thumbUrl] = msg.message!.split("####");
-
-                return (
+                {bannedMessages.includes(msg.id) ? (
+                  <em>This message has been removed because it violates our policies.</em>
+                ) : msg.msg_type === 1 ? (
+                  <span className={`relative z-15 no-select break-all whitespace-pre-wrap ${selectedMessageId === msg.id && "text-white"}`}>
+                    {convertLinksToAnchors(msg.message!, msg.user_id === userId)}
+                  </span>
+                ) : msg.msg_type === 2 ? (
+                  <span className="ml-2">
+                    <audio controls style={{ display: 'inline' }}>
+                      <source src={`data:audio/mp3;base64,${msg.message}`} type="audio/mp3" />
+                      Il tuo browser non supporta l'elemento audio.
+                    </audio>
+                  </span>
+                ) : msg.msg_type === 3 ? (
                   <div className="mt-2">
-                    <video
-                      src={videoUrl}
-                      controls
-                      poster={thumbUrl} 
+                    <img
+                      src={`${msg.message}`}
+                      alt="sent"
                       className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
-                    >
-                      Il tuo browser non supporta l'elemento video.
-                    </video>
+                      onClick={() => openImageModal(msg.message!)}
+                      onTouchEnd={() => {
+                        if (isScrolling) return;
+                        openImageModal(msg.message!);
+                      }}
+                    />
                   </div>
-                );
-              })()}
+                ) : msg.msg_type === 4 ? (
+                  (() => {
+                    const [videoUrl, thumbUrl] = msg.message!.split("####");
+                    return (
+                      <div className="mt-2">
+                        <video
+                          src={videoUrl}
+                          controls
+                          poster={thumbUrl}
+                          className="relative z-15 max-w-xs max-h-60 rounded cursor-pointer hover:opacity-90 transition"
+                        >
+                          Il tuo browser non supporta l'elemento video.
+                        </video>
+                      </div>
+                    );
+                  })()
+                ) : null}
 
               {isLastMessage && msg.date && (
                 <div className={`text-xs  mt-1 ${msg.user_id === userId ? "text-right text-gray-200" : "text-left text-gray-400"}`}>

@@ -157,7 +157,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ globalMessages, totalUsersGloba
     <div onClick={() =>  window.open(`/chat/36`, "_blank")} onTouchStart={(e) => window.open(`/chat/36`, "_blank")} className="w-full h-44 bg-gray-100 border border-gray-400 rounded-lg shadow-md cursor-pointer hover:border-blue-500">
       {/* Header */}
       <div className="flex justify-between items-center px-2 py-1 border-b border-gray-300 text-sm">
-        <span className="font-bold">{globalChatName}</span>
+        <span className="font-bold font-mono">{globalChatName}</span>
         {totalUsersGlobalChat > 0 && (<span className="text-gray-600">{totalUsersGlobalChat} users connected</span>)}
       </div>
 
