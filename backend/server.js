@@ -2513,8 +2513,6 @@ io.on('connection', (socket) => {
 
   socket.on('join-private-room', async (conversation_id, user, callback) => {
 
-    console.log("sono qui... e faccio accesso alla chat privata", conversation_id, user)
-
     socket.userId = user.id;
     socket.conversationId = conversation_id;
     socket.nickname = user.nickname;

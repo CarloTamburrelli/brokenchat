@@ -765,7 +765,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* HEADER */}
-      <div className="sticky top-0 z-50 bg-white shadow-md flex items-center justify-between p-4">
+      <div className="sticky top-0 z-10 bg-white shadow-md flex items-center justify-between p-4">
         {/* Parte sinistra: back link + nickname */}
         <div className="flex items-center">
           <Link to={goBackLink} className="mr-4 text-2xl">

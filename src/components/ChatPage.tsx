@@ -803,6 +803,46 @@ function ChatPage() {
       
           {selectedMessageId === msg.id && (
             <div className="absolute top-[-30px] right-2 flex items-center bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg" style={{ pointerEvents: "auto" }}>
+              <button className="text-sm text-red-400 px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReportOpen(msg);
+                  //handleReport(msg);
+                }}
+              
+                onTouchStart={(e) => {
+                  e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
+                  setReportOpen(msg);
+                  //handleReport(msg); // Deselect il messaggio
+                }}
+              
+              >
+                Report
+              </button>
+
+              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
+      
+              <button className="text-sm hover:text-blue-400 text-white px-2" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(msg.message!)
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }
+              }
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                handleCopy(msg.message!)
+              }}
+              
+              >
+                Copy
+              </button>
+      
+              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
+      
+              
               <button className="text-sm hover:text-blue-400 px-2"
                onClick={(e) => {
                 e.stopPropagation();
@@ -826,50 +866,11 @@ function ChatPage() {
               }}>
                 Reply
               </button>
-
-              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
-      
-              <button className="text-sm text-white px-2" 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCopy(msg.message!)
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-              }
-              }
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-                handleCopy(msg.message!)
-              }}
-              
-              >
-                Copy
-              </button>
-      
-              <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
-      
-              <button className="text-sm text-red-400 px-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setReportOpen(msg);
-                  //handleReport(msg);
-                }}
-              
-                onTouchStart={(e) => {
-                  e.stopPropagation(); // Stoppa la propagazione dell'evento su touch
-                  setReportOpen(msg);
-                  //handleReport(msg); // Deselect il messaggio
-                }}
-              
-              >
-                Report
-              </button>
       
               <div className="border-l border-white h-4 mx-1"></div> {/* Linea separatrice */}
       
               <button
-                className="text-sm text-red-500 font-bold hover:text-red-700 px-2"
+                className="text-xl text-white font-bold hover:text-blue-400 px-2"
                 onClick={(e) => {
                   e.stopPropagation(); // Stoppa la propagazione dell'evento
                   handleDeselect(); // Deselect il messaggio
@@ -1032,7 +1033,7 @@ function ChatPage() {
   return (
     <div className="flex flex-col h-screen max-w-3xl mx-auto">
       {/* Header */}
-      {(isChatLocked == false) && (<div className="sticky top-0 text-center font-bold z-50 bg-white shadow-md">
+      {(isChatLocked == false) && (<div className="sticky top-0 text-center font-bold z-30 bg-white shadow-md">
         <Header numPvtMsgToRead={unreadPrivateMessagesCount} AmIAdmin={chatData!.am_i_admin} usersList={usersList} showUserListModal={() => setShowUserListModal(true)} onOpenInfo={() => setShowInfoChatModal(true)} headerName={chatData!.name} editChat={ () => setIsSettingsOpen(true)} banUser={() => setIsBanModalOpen(true)} />
       </div>) }
 
@@ -1065,7 +1066,12 @@ function ChatPage() {
           {/* Info Admin & Data Creazione */}
           <div className="text-sm text-gray-800 space-y-1">
             <div><span className="font-semibold">Admin:</span> <span className='underline cursor-pointer'
-    onClick={() => {(admin!.id !== userId) && setProfileToShow(admin)}} // Funzione da eseguire al click
+    onClick={() => {
+      
+      (admin!.id !== userId) && setProfileToShow(admin)
+      setShowInfoChatModal(false)
+    
+    }} // Funzione da eseguire al click
   >{admin?.nickname}
   </span></div>
             <div><span className="font-semibold">Created on:</span> {chatData!.created_at}</div>
@@ -1428,7 +1434,7 @@ function ChatPage() {
             
               {/* Pulsante per rimuovere la citazione */}
               <button
-                className="absolute top-1 right-2 text-red-400 hover:text-red-600"
+                className="absolute text-xl top-1 right-2 text-red-400 hover:text-red-600"
                 onClick={() => setQuotedMessage(null)}
               >
                 ✕

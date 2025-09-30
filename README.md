@@ -9,14 +9,12 @@ Geolocalized chat system that finds the closest chats in your area.
 
 - Criptaggio informazioni per chat private
 - forse fare colore del logo come il colore che hanno i messaggi (quel blu scuro)?
-- sistema scritta che scompare nella versione dove non sei loggato (è brutto se scompare e basta, forse bisogna lasciare vecchia animazione lì), oppure qualche gioco dove spieghi come funziona (ma sembra molto complicato da seguire...)
 - risolvi problema scrolling a metà quando entri nella chat, non mi piace, dovrebbe sempre arrivare alla fine!
-- se metti un nickname lungo il Welcome Bac... (si ferma prima!)
 
 --- non so se non è complicato ok --- altrimenti durante documenti avvocati
 - fai delle prove, sembrerebbe che la compressione FOTO non sia così efficace...
 - sistema di gif e risistemazione delle faccine
-- About Us page 
+- About Our Mission
 
 ## Query SQL e TODO dopo il push
 

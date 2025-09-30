@@ -7,6 +7,7 @@ import my_messages from '../assets/my_messages.png';
 import { Link } from 'react-router-dom';
 import user3 from '../assets/user3.png';
 import { NavItem } from '../types';
+import LoadingSpinner from './LoadingSpinner';
 
 
 export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], editChat = () => {}, banUser = () => {}, onOpenInfo =() => {}, showUserListModal = () => {}, AmIAdmin=0}: {numPvtMsgToRead: number, headerName: string, usersList?: string[], editChat: () => void, banUser: () => void, onOpenInfo: ()=> void, showUserListModal?: () => void, AmIAdmin: number}) {
@@ -26,7 +27,7 @@ export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], 
   
   return (
     <Disclosure>
-      <div className="mx-auto max-w-7xl pl-4 pr-1">
+      <div className="mx-auto max-w-7xl pl-3 pr-1">
       <div className="relative flex h-16 items-center justify-between">
   {/* Contenitore per il logo e il titolo della chat */}
   <div className="flex items-center ">
@@ -50,12 +51,12 @@ export default function Header({numPvtMsgToRead=0, headerName='', usersList=[], 
       <div className="absolute inset-y-0 right-0 flex items-center sm:static sm:inset-auto sm:ml-6 sm:pr-0">
 
         
-        {(usersList && usersList.length > 0) && (<div onClick={showUserListModal} className="cursor-pointer flex items-center space-x-1 bg-gray-700 rounded-full px-2 py-1">
+        {(usersList && usersList.length > 0) ? (<div onClick={showUserListModal} className="cursor-pointer flex items-center space-x-1 bg-gray-700 rounded-full px-2 py-1">
           <img src={user3} alt="Users Icon" className="w-5 h-5" />
           <span onClick={showUserListModal} className="text-white text-sm font-semibold flex items-center justify-center min-w-[20px]">
             {usersList.length}
           </span>
-        </div>)}
+        </div>) : (<LoadingSpinner mt={0} size={8}/>)}
 
         <Link to="/private-messages" className="pointer-events-auto">
           <div className="relative cursor-pointer flex items-center space-x-1 px-2 py-1">

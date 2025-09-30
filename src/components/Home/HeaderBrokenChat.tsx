@@ -96,7 +96,7 @@ const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({
               />
             </div>
           ) : (
-            <h1 className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal typing-effect`}>
+            <h1 className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal typing-effect-guest`}>
               {welcomeStr}
             </h1>
           )}
