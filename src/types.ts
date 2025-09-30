@@ -2,6 +2,7 @@ export type MessageData = {
   id:  number | string;
   nickname: string | null;
   message: string | null;
+  avatar_url: string | null;
   alert_message: boolean;
   msg_type: number;
   date: string | null;
@@ -34,6 +35,7 @@ export interface UserData {
   id: number;
   nickname: string;
   subscription?: string;
+  avatar_url: string | null;
 };
 
 export type PrivateUserData = {
@@ -42,12 +44,14 @@ export type PrivateUserData = {
     distance: number;
     geo_accepted: boolean;
     geo_hidden: boolean;
+    avatar_url: string | null;
 };
 
 export interface UserConversation {
   id: number;
   user_id: number;
   nickname: string;
+  avatar_url: string | null;
   last_message?: string;
   data?: string;
   is_read: boolean;

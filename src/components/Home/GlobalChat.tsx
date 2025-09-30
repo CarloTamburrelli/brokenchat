@@ -2,7 +2,7 @@ import React from "react";
 import { MessageData } from "../../types";
 import { generateColorFromId } from '../../utils/generateColorFromId';
 import microphoneIcon from "../../assets/audio.png";
-import videoIcon from "../../assets/video.png";
+import defaultAvatarIcon from "../../assets/default_avatar.png";
 
 interface GlobalChatProps {
   globalMessages: MessageData[],
@@ -50,11 +50,20 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ globalMessages, totalUsersGloba
       return (
         <div
           key={msg.id}
-          className={`select-none w-full relative flex justify-start" ${isSameUserAsPrevious ? "pt-1" : "pt-1"}`}
+          className="select-none w-full relative flex justify-start items-start pt-1"
         >
+          <div className="w-8 h-8 flex-shrink-0">
+            {!isSameUserAsPrevious && (
+              <img
+                src={msg.avatar_url || defaultAvatarIcon}
+                alt={`${msg.nickname}'s avatar`}
+                className="w-6 h-6 rounded-full object-cover border border-gray-400"
+              />
+            )}
+          </div>
         <div 
           key={msg.id} 
-          className={`px-1 flex rounded-md max-w-[95%] bg-grey-200 mr-auto justify-start pt-0 bg-transparent`}
+          className="flex flex-col max-w-[calc(100%-3rem)] bg-transparent"
         >
       
       
@@ -138,8 +147,17 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ globalMessages, totalUsersGloba
                 </div>
               )}
               {msg.msg_type === 4 && (
-                <div className="mt-2">
-                  <img src={videoIcon} alt="Video" className="w-12 h-12" />
+                <div className="relative w-12 h-12 mt-2">
+                  <img 
+                    src={msg.message!.split("####")[1]} 
+                    alt="Video" 
+                    className="w-12 h-12 rounded"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
                 </div>
               )}
             </div>

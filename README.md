@@ -7,12 +7,16 @@ Geolocalized chat system that finds the closest chats in your area.
 
 ## TODO - nuovo Broken Chat
 
-- Hai fatto il worker con python:
-  - fare sistema segnalazioni (se almeno 4 persone segnalano un contenuto, allora viene rimosso e il tipo ammonito e poi si aggiunge sempre una riga al db nella tabella delle violazioni )
-  - sistema ban per IP (è eccessivo e rischi di bannere gente non colpevole) e sistema ban perchè puoi contattare persone in privato anche se sei bannato!
-  - ricontrolla controllo numero violazioni, sembra siano necessarie piu' di 4 violazioni prima del ban
 - Criptaggio informazioni per chat private
-- AGGIUNGI AVATAR! :D
+- forse fare colore del logo come il colore che hanno i messaggi (quel blu scuro)?
+- sistema scritta che scompare nella versione dove non sei loggato (è brutto se scompare e basta, forse bisogna lasciare vecchia animazione lì), oppure qualche gioco dove spieghi come funziona (ma sembra molto complicato da seguire...)
+- risolvi problema scrolling a metà quando entri nella chat, non mi piace, dovrebbe sempre arrivare alla fine!
+- se metti un nickname lungo il Welcome Bac... (si ferma prima!)
+
+--- non so se non è complicato ok --- altrimenti durante documenti avvocati
+- fai delle prove, sembrerebbe che la compressione FOTO non sia così efficace...
+- sistema di gif e risistemazione delle faccine
+- About Us page 
 
 ## Query SQL e TODO dopo il push
 
@@ -63,6 +67,17 @@ CREATE TABLE violations (
     created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+### 6) Task dell'avatar
+
+
+``` SQL
+ALTER TABLE users 
+ADD COLUMN avatar_url TEXT DEFAULT NULL;
+```
+
+segna anche ADMIN_USER_ID nell'.env
+
 
 ## POST BIG UPDATE
 - Aggiornare metodi e condizioni che indicano che noi siamo abilitati a rimuovere ogni contenuto che riteniamo non in linea con le leggi.

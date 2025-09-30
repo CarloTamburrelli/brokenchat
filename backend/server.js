@@ -27,6 +27,7 @@ const GROQ_KEYS = [
 ];
 
 const GLOBAL_CHAT_ID = Number(process.env.GLOBAL_CHAT_ID);
+const ADMIN_USER_ID = Number(process.env.ADMIN_USER_ID);
 
 let currentKeyIndex = 0;
 
@@ -87,8 +88,8 @@ const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
 });
 
 const upload = multer({
@@ -264,6 +265,112 @@ const isValidNickname = (nickname) => {
   const regex = /^[a-zA-Z0-9_]{3,17}$/;
   return regex.test(nickname);
 };
+
+
+app.post('/reset-avatar', async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).json({ message: "Token is required" });
+  }
+
+  try {
+    const userRes = await pool.query(
+      `SELECT avatar_url FROM users WHERE token = $1`,
+      [token]
+    );
+
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ message: "User not found or invalid token" });
+    }
+
+    const currentAvatarUrl = userRes.rows[0]?.avatar_url;
+
+    if (currentAvatarUrl) {
+      const imageKey = new URL(currentAvatarUrl).pathname.substring(1);
+
+      // 2️⃣ Elimina il file da S3
+      await s3.send(new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: imageKey
+      }));
+    }
+
+    await pool.query(
+      `UPDATE users SET avatar_url = NULL WHERE token = $1 RETURNING id`,
+      [token]
+    );
+
+    return res.status(200).json({
+      message: "Avatar reset successfully",
+    });
+  } catch (err) {
+    console.error("Error resetting avatar:", err);
+    return res.status(500).json({
+      message: "Internal server error while resetting avatar",
+    });
+  }
+});
+
+
+app.post('/update-avatar', upload.single("file"), async (req,res) => {
+  const file = req.file; 
+  const token = req.body.token;  
+
+  if (!file) {
+    return res.status(400).json({ error: "No file received" });
+  }
+
+  const userResult = await pool.query('SELECT id, avatar_url FROM users WHERE token = $1', [token]);
+  
+  const userId = userResult.rows[0].id;
+
+  const avatarUrl = userResult.rows[0].avatar_url;
+
+  if (avatarUrl) {
+    const imageKey = new URL(avatarUrl).pathname.substring(1);
+
+    // 2️⃣ Elimina il file da S3
+    await s3.send(new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: imageKey
+    }));
+  }
+
+  const extension = file.mimetype.split('/')[1]; // esempio: image/jpeg → "jpeg"
+
+  const key = `avatars/${userId}_${Date.now()}.${extension}`;
+
+  await s3.send(new PutObjectCommand({
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+    Body: file.buffer, 
+    ContentType: file.mimetype
+  }));
+
+  const url_avatar = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+  await pool.query(
+    `UPDATE users SET avatar_url = $1 WHERE id = $2`,
+    [url_avatar, userId]
+  );
+
+  await redisClient.lpush(
+    'moderation_jobs_raw',
+    JSON.stringify({
+      url_media: url_avatar,
+      user_id: userId,
+      type: 'image',
+      is_avatar_upload: true,
+    })
+  );
+
+  return res.status(200).json({
+    message: "Avatar uploaded successfully, pending moderation",
+    url: url_avatar
+  });
+
+})
 
 
 // Rotta per creare una nuova chat
@@ -530,6 +637,75 @@ app.post("/register-webpush", async (req, res) => {
 });
 
 
+async function check_report_user (reported_user_id, msg_ban, chat_id = null)  {
+
+  let rows;
+
+  if (chat_id !== null) {
+    const res = await pool.query(
+      `SELECT DISTINCT reporter_id, type, message, description
+      FROM reports
+      WHERE reported_user_id = $1 AND chat_id = $2`,
+      [reported_user_id, chat_id]
+    );
+    rows = res.rows;
+  } else {
+    const res = await pool.query(
+      `SELECT DISTINCT reporter_id, type, message, description
+      FROM reports
+      WHERE reported_user_id = $1 AND chat_id IS NULL`,
+      [reported_user_id]
+    );
+    rows = res.rows;
+  }
+  
+
+  if (rows.length == 4) {
+    // Creo JSON dei dettagli della violazione
+    const details = {
+      ...(chat_id !== null && { chat_id }), 
+      reports: rows.map(r => ({
+        type: r.type,
+        message: r.message,
+        description: r.description
+      }))
+    };
+
+    // 3️⃣ Inserisco la violazione
+    await pool.query(
+      `INSERT INTO violations (user_id, violation, details)
+      VALUES ($1, $2, $3)`,
+      [reported_user_id, "max_num_report", details]
+    );
+
+    const result = await pool.query(
+      `UPDATE users
+      SET ban_read = false,
+          ban_status = CASE 
+                          WHEN (SELECT COUNT(*) FROM violations WHERE user_id = $2) > 4 
+                          THEN 2 
+                          ELSE 1 
+                        END,
+          ban_message = $1
+      WHERE id = $2
+      RETURNING *`,
+      [
+        msg_ban,
+        reported_user_id
+      ]
+    );
+
+    const updatedUser = result.rows[0];
+    if (chat_id !== null && updatedUser.ban_status === 2) {
+      io.to(`user:${reported_user_id}`).emit('banned', {
+        msg: "You have been banned from the chat",
+        chat_id: chat_id,
+      })
+    }
+  }
+}
+
+
 app.post("/report", async (req, res) => {
   try {
     const { 
@@ -564,6 +740,7 @@ app.post("/report", async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [reporter_id, reported_user_id, resource_id, message, type, description]
       );
+      check_report_user(reported_user_id, "Some users have reported a message you wrote that potentially doesn't comply with our policies.", resource_id)
     } 
     // 2️⃣ Report messaggio in conversazione
     else if (baseReport === "conversation" && resource_id) {
@@ -580,6 +757,7 @@ app.post("/report", async (req, res) => {
          VALUES ($1, $2, $3, $4)`,
         [reporter_id, reported_user_id, type, description]
       );
+      check_report_user(reported_user_id, "You've been reported many times by users, and your behavior likely doesn't comply with our policies.")
     } 
     else {
       return res.status(400).json({ error: "Invalid report payload" });
@@ -637,14 +815,14 @@ app.get('/get-user', async (req, res) => {
 
   const ip = normalizeIp(req.ip);
 
-  const isIpBanned = await pool.query(
-      `SELECT *
+  const userIsBanned = await pool.query(
+      `SELECT id
        FROM users u
-       WHERE u.ip_address = $1 AND u.ban_status = 2`,
-      [ip]
+       WHERE u.token = $1 AND u.ban_status = 2`,
+      [token]
   );
 
-  if (isIpBanned.rows.length !== 0) {
+  if (userIsBanned.rows.length !== 0) {
     return res.status(200).json({ ban_status: 2 }); // interrompi ogni operazione
   }
 
@@ -669,7 +847,7 @@ app.get('/get-user', async (req, res) => {
 
     // Cerca l'utente con il token nel database
     const userResult = await pool.query(
-      `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude,
+      `SELECT u.nickname, u.id, u.latitude as last_latitude, u.longitude as last_longitude, u.avatar_url,
        CASE WHEN u.recovery_code IS NULL THEN 1 ELSE 0 END as recovery_code_is_null,
        CASE WHEN f.id IS NULL THEN 1 ELSE 0 END as feedback_is_null, u.ban_status, u.ban_message, u.ban_read  
        FROM users u
@@ -687,6 +865,7 @@ app.get('/get-user', async (req, res) => {
           SELECT 
             m.id,
             u.nickname,
+            u.avatar_url,
             m.message,
             m.user_id,
             m.msg_type,
@@ -729,6 +908,7 @@ app.get('/get-user', async (req, res) => {
       ban_status = userResult.rows[0].ban_status;
       ban_message = userResult.rows[0].ban_message;
       ban_read = userResult.rows[0].ban_read;
+      avatar_url = userResult.rows[0].avatar_url;
 
       const isValid = (v) => v !== null && v !== "0" && v !== 0;
 
@@ -776,7 +956,8 @@ app.get('/get-user', async (req, res) => {
         ban_message,
         ban_read,
         global_messages: messagesResult ? messagesResult.rows : [],
-        ip_address: ip
+        ip_address: ip,
+        avatar_url
       });
 
     } else {
@@ -864,7 +1045,7 @@ app.post('/users/get-by-id', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT id, nickname, subscription FROM users WHERE id = ANY($1)',
+      'SELECT id, nickname, subscription, avatar_url FROM users WHERE id = ANY($1)',
       [userIds]
     );
 
@@ -992,13 +1173,11 @@ app.get('/chat/:chatId', async (req, res) => {
   const { chatId } = req.params; // Recupera chatId dall'URL
   const token = req.query.token; // Recupera il token dalla query string
 
-  const ip = normalizeIp(req.ip);
-
   const isIpBanned = await pool.query(
       `SELECT *
        FROM users u
-       WHERE u.ip_address = $1 AND u.ban_status = 2`,
-      [ip]
+       WHERE u.token = $1 AND u.ban_status = 2`,
+      [token]
   );
 
   if (isIpBanned.rows.length !== 0) {
@@ -1017,6 +1196,8 @@ app.get('/chat/:chatId', async (req, res) => {
          u.nickname,
          u.ban_status,
          u.id as user_id,
+         u.avatar_url,
+         u_admin.avatar_url as avatar_admin,
          c.description,
          u_admin.nickname as nickname_admin, 
          CASE 
@@ -1061,6 +1242,7 @@ app.get('/chat/:chatId', async (req, res) => {
         u.nickname,
         m.message,
         m.user_id,
+        u.avatar_url,
         m.msg_type,
         m.created_at as date,
         CASE 
@@ -1272,7 +1454,8 @@ app.get("/users", async (req, res) => {
     const users = await pool.query(
       `SELECT 
         u.id AS user_id, 
-        u.nickname, 
+        u.nickname,
+        u.avatar_url, 
         pm.id,
         cm.message AS last_message,
         cm.created_at AS last_message_time,
@@ -1482,7 +1665,7 @@ app.post('/get-recovery-profile', async (req, res) => {
   }
 });
 
-app.post('/moderation/remove_message/', async (req, res) => {
+app.post('/moderation/remove-data/', async (req, res) => {
   const token = req.headers['authorization'];
   if (token !== `Bearer ${process.env.SECRET_KEY}`) {
     return res.status(403).json({ error: 'Forbidden' });
@@ -1491,7 +1674,7 @@ app.post('/moderation/remove_message/', async (req, res) => {
   try {
     const { job_data, violations } = req.body;
 
-    const { message_id, user_id, url_media, chat_id, type } = job_data;
+    const { message_id, user_id, url_media, chat_id, type, is_avatar_upload } = job_data;
 
     if (type == "image") {
       const imageKey = new URL(url_media).pathname.substring(1);
@@ -1528,11 +1711,30 @@ app.post('/moderation/remove_message/', async (req, res) => {
       throw new Error(`Unsupported media type: ${type}`); 
     }
 
-    
+    if (is_avatar_upload) {
+      await pool.query(
+        `UPDATE users SET avatar_url = NULL WHERE id = $1`,
+        [user_id]
+      );
+
+      await pool.query(
+        `INSERT INTO reports (reporter_id, reported_user_id, type) 
+         VALUES ($1, $2, $3)`,
+        [ADMIN_USER_ID, user_id, "nsfw_avatar"]
+      );
+
+      return res.status(200).json({ success: true });
+    }
 
     await pool.query(
       `DELETE FROM messages WHERE id = $1`,
       [message_id]
+    );
+
+    await pool.query(
+      `INSERT INTO violations (user_id, violation, details)
+       VALUES ($1, $2, $3)`,
+      [user_id, "prohibited_content", violations ? JSON.stringify(violations) : null]
     );
 
     const result = await pool.query(
@@ -1550,12 +1752,6 @@ app.post('/moderation/remove_message/', async (req, res) => {
         "You have uploaded prohibited content (violates our Terms & Conditions, Art. 2: Prohibited Content).",
         user_id
       ]
-    );
-
-    await pool.query(
-      `INSERT INTO violations (user_id, violation, details)
-       VALUES ($1, $2, $3)`,
-      [user_id, "prohibited_content", violations ? JSON.stringify(violations) : null]
     );
 
     io.to(chat_id).emit('alert_message', { banned_message_id: message_id });
@@ -1700,13 +1896,11 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
   try {
 
-        const ip = normalizeIp(req.ip);
-
         const isIpBanned = await pool.query(
             `SELECT *
             FROM users u
-            WHERE u.ip_address = $1 AND u.ban_status = 2`,
-            [ip]
+            WHERE u.token = $1 AND u.ban_status = 2`,
+            [token]
         );
 
         if (isIpBanned.rows.length !== 0) {
@@ -1716,8 +1910,8 @@ app.get("/conversation/:conversationId", async (req, res) => {
 
 
       const conversationQuery = `
-          SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname,
-                 u2.id AS target_user_id, u2.nickname AS target_user_nickname, u1.latitude as my_lat, u1.longitude as my_lon, 
+          SELECT c.id, c.user_id1, c.user_id2, u1.id AS auth_user_id, u1.nickname AS auth_user_nickname, u1.avatar_url AS auth_user_avatar_url,
+                 u2.id AS target_user_id, u2.nickname AS target_user_nickname,  u2.avatar_url AS target_user_avatar_url, u1.latitude as my_lat, u1.longitude as my_lon, 
                  u2.latitude, u2.longitude, u1.geo_hidden as geo_hidden_u1, u2.geo_hidden as geo_hidden_u2 
           FROM conversations c
           JOIN users u1 ON u1.token = $1
@@ -1775,17 +1969,19 @@ app.get("/conversation/:conversationId", async (req, res) => {
       return res.json({
           messages: messagesResult.rows,
           auth_user: {
-              id: conversation.auth_user_id,
-              nickname: conversation.auth_user_nickname,
-              geo_accepted: conversation.my_lat != null,
-              geo_hidden: conversation.geo_hidden_u1
+            id: conversation.auth_user_id,
+            nickname: conversation.auth_user_nickname,
+            avatar_url: conversation.auth_user_avatar_url,
+            geo_accepted: conversation.my_lat != null,
+            geo_hidden: conversation.geo_hidden_u1
           },
           target_user: {
-              id: conversation.target_user_id,
-              nickname: conversation.target_user_nickname,
-              distance,
-              geo_hidden: conversation.geo_hidden_u2,
-              is_online: target_is_online
+            id: conversation.target_user_id,
+            nickname: conversation.target_user_nickname,
+            avatar_url: conversation.target_user_avatar_url,
+            distance,
+            geo_hidden: conversation.geo_hidden_u2,
+            is_online: target_is_online
           }
       });
 
@@ -1835,6 +2031,10 @@ app.get("/conversations/all", async (req, res) => {
                 WHEN c.user_id1 = $1 THEN u2.geo_hidden
                 ELSE u1.geo_hidden
              END AS geo_hidden_2,
+             CASE
+                WHEN c.user_id1 = $1 THEN u2.avatar_url
+                ELSE u1.avatar_url
+             END AS avatar_url,
              CASE
                 WHEN c.user_id1 = $1 THEN c.read_1
                 ELSE c.read_2
@@ -1902,20 +2102,22 @@ app.get("/conversations", async (req, res) => {
     // Eseguo una singola query per recuperare sia l'utente autenticato, sia il target, sia la conversazione
     const result = await pool.query(
       `WITH auth_user AS (
-      SELECT id, nickname, geo_hidden, latitude, longitude FROM users WHERE token = $1
+      SELECT id, nickname, geo_hidden, latitude, avatar_url, longitude FROM users WHERE token = $1
     ),
     target_user AS (
-      SELECT id, nickname, geo_hidden, latitude, longitude FROM users WHERE id = $2
+      SELECT id, nickname, geo_hidden, latitude, avatar_url, longitude FROM users WHERE id = $2
     )
   SELECT 
     au.id AS auth_user_id, 
     au.nickname AS auth_user_nickname, 
+    au.avatar_url AS auth_user_avatar_url, 
     au.geo_hidden AS geo_hidden_1, 
     au.latitude AS my_lat, 
     au.longitude AS my_lon,
     
     tu.id AS target_user_id, 
     tu.nickname AS target_user_nickname, 
+    tu.avatar_url AS target_user_avatar_url, 
     tu.geo_hidden AS geo_hidden_2, 
     tu.latitude, 
     tu.longitude,
@@ -1946,8 +2148,8 @@ app.get("/conversations", async (req, res) => {
 
     res.json({
       conversation_id: row.conversation_id || null,
-      auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname, geo_hidden: row.geo_hidden_1, geo_accepted: row.my_lat != null },
-      target_user: { id: row.target_user_id, nickname: row.target_user_nickname, geo_hidden: row.geo_hidden_2, distance, is_online: target_is_online },
+      auth_user: { id: row.auth_user_id, nickname: row.auth_user_nickname, avatar_url: row.auth_user_avatar_url, geo_hidden: row.geo_hidden_1, geo_accepted: row.my_lat != null },
+      target_user: { id: row.target_user_id, nickname: row.target_user_nickname, avatar_url: row.target_user_avatar_url, geo_hidden: row.geo_hidden_2, distance, is_online: target_is_online },
     });
   } catch (error) {
     console.error("Errore nel recupero della conversazione:", error);
@@ -2251,8 +2453,7 @@ io.on('connection', (socket) => {
       );
 
       newMessage.id = result_message.rows[0].id;
-      newMessage.created_at = new Date();
-      
+      newMessage.created_at = new Date();      
       // Emetti il messaggio alla chat
       io.to(chatId).emit('broadcast_messages', newMessage);
 

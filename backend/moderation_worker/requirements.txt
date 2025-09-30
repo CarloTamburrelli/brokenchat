@@ -2,3 +2,4 @@ nudenet
 requests
 redis
 opencv-python-headless
+Pillow

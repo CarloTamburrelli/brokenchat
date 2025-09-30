@@ -3,6 +3,7 @@ import send from '../assets/send.png';
 import cameraIcon from "../assets/camera.png"; 
 import { fetchWithPrefix } from '../utils/api';
 import { checkValidityDuration } from '../utils/Video/checkValidityDuration';
+import { resizeAndCompressImage } from '../utils/Image/resizeAndCompressImage';
 
 interface CameraCaptureProps {
   onSendFile: (type: 3 | 4, file: string) => void;
@@ -19,55 +20,6 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
 
   const openGallery = () => {
     document.getElementById("gallery-input")?.click();
-  };
-
-  const resizeAndCompressImage = (
-    file: File,
-    maxWidth = 1280,
-    maxHeight = 1280,
-    quality = 0.7
-  ): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        img.src = e.target?.result as string;
-      };
-
-      img.onload = () => {
-        let { width, height } = img;
-
-        // Calcola nuova dimensione proporzionale
-        if (width > maxWidth || height > maxHeight) {
-          const scale = Math.min(maxWidth / width, maxHeight / height);
-          width *= scale;
-          height *= scale;
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject("Canvas not supported");
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Converte direttamente in Blob (jpeg compresso)
-        canvas.toBlob(
-          (blob) => {
-            if (blob) resolve(blob);
-            else reject("Errore nella compressione immagine");
-          },
-          "image/jpeg",
-          quality
-        );
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   };
 
   const selectImageFromGallery = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,13 +55,24 @@ export default function CameraCapture({ onSendFile, resourceId, resourceType }: 
   try {
 
     const blob = await fetch(image).then(r => r.blob());
-    const file = new File([blob], "image.jpg", { type: blob.type });
-    
-    const compressedBlob = await resizeAndCompressImage(file);
-    const compressedFile = new File([compressedBlob], "image.jpg", { type: "image/jpeg" });
+    const mime = blob.type; // es: "image/jpeg"
+    const ext = mime.split("/")[1]; // "jpeg", "png", "gif"
+    const filename = `image.${ext}`;
+
+    let finalFile: File;
+
+    if (ext === "jpeg" || ext === "jpg" || ext === "png") {
+      // fai la compressione solo per jpg/png
+      const file = new File([blob], filename, { type: blob.type });
+      const compressedBlob = await resizeAndCompressImage(file);
+      finalFile = new File([compressedBlob], filename, { type: blob.type });
+    } else {
+      // gif o altri tipi → non comprimere
+      finalFile = new File([blob], filename, { type: blob.type });
+    }
 
     const formData = new FormData();
-    formData.append("file", compressedFile);
+    formData.append("file", finalFile);
 
     const response_json = await fetchWithPrefix(`/upload-image/${resourceId}?folder=${resourceType}`, {
       method: "POST",

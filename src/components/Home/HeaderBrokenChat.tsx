@@ -1,8 +1,9 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
 import { Link } from "react-router-dom";
 import LocationRequestButton from "../LocationRequestButton";
 import my_messages from "../../assets/my_messages.png";
 import key from "../../assets/key.png";
+import defaultAvatarIcon from "../../assets/default_avatar.png";
 import FilterMenu from "../FilterMenu";
 
 interface HeaderBrokenChatProps {
@@ -10,13 +11,14 @@ interface HeaderBrokenChatProps {
   alreadyJoined: string | null;
   nickname: string | null;
   welcomeStr: string;
-  animate: boolean;
   unreadPrivateMessagesCount: number;
   openNicknameModal: () => void;
+  openAvatarModal: () => void;
   lat?: number | null;
   lon?: number | null;
   selectedFilter: string | null;
   setSelectedFilter: (filter: string) => void;
+  currentAvatarUrl: string | null;
 }
 
 const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({
@@ -24,14 +26,25 @@ const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({
   alreadyJoined,
   nickname,
   welcomeStr,
-  animate,
   unreadPrivateMessagesCount,
   openNicknameModal,
+  openAvatarModal,
   lat,
   lon,
   selectedFilter,
   setSelectedFilter,
+  currentAvatarUrl,
 }) => {
+
+  const [animate, setAnimate] = useState<boolean>(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimate(false); // rimuove la classe e il cursore
+    }, 8000); // durata totale typing + deleting
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div ref={headerRef} style={{backgroundColor: '#f9f9f9'}} className="sticky top-0 z-10 shadow-md w-full">
     <div className="w-full my-2">
@@ -65,19 +78,25 @@ const HeaderBrokenChat: React.FC<HeaderBrokenChatProps> = ({
         {/* Messaggio di benvenuto / nickname */}
         <div className="flex justify-center md:flex-1">
           {nickname ? (
-            <div className="flex items-center gap-2">
-              <h1 className={`text-1xl font-bold text-gray-500 font-mono ${animate ? "typing-effect" : ""}`}>
-                Welcome back
-              </h1>
+            <div className="flex items-center justify-center gap-2">
+              {animate && (<h1 className="text-1xl font-bold text-gray-500 font-mono typing-effect">
+                Welcome back!
+              </h1>)}
               <span
                 onClick={openNicknameModal}
                 className="underline cursor-pointer text-1xl text-gray-500 font-mono"
               >
-                {nickname}
+                {nickname} 
               </span>
+              <img
+                onClick={openAvatarModal}
+                src={currentAvatarUrl || defaultAvatarIcon}
+                alt="Avatar"
+                className="w-8 h-8 rounded-full cursor-pointer object-cover"
+              />
             </div>
           ) : (
-            <h1 className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal ${animate ? "typing-effect" : ""}`}>
+            <h1 className={`text-1xl font-bold text-gray-500 font-mono block break-words whitespace-normal typing-effect`}>
               {welcomeStr}
             </h1>
           )}

@@ -12,11 +12,11 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import CameraCapture from "./CameraCapture";
 import microphoneIcon from "../assets/audio.png";
-import videoIcon from "../assets/video.png";
 import { MessageData, PrivateUserData, UserData } from "../types";  
 import { MAX_PRIVATE_ROOM_MESSAGE } from "../utils/consts";
 import { ReportModal } from "./ReportModal";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
+import defaultAvatarIcon from "../assets/default_avatar.png";
 
 
 const PrivateChatPage = () => {
@@ -47,6 +47,7 @@ const PrivateChatPage = () => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState<MessageData | UserData | null>(null);
   const [firstLoad, setFirstLoad] = useState(true);
+  const [preview, setPreview] = useState<string | null>(null);
   const token = localStorage.getItem('authToken');
   let alreadyJoined = false;
   const ffmpeg = new FFmpeg();
@@ -102,6 +103,7 @@ const PrivateChatPage = () => {
             id: newMessage.id,
             nickname: newMessage.nickname,
             message: newMessage.text,
+            avatar_url: newMessage.avatar_url,
             date: newMessage.created_at,
             alert_message: false,
             user_id: newMessage.user_id,
@@ -327,6 +329,7 @@ const onLongPress = (e: any, msg_id: number | string) => {
         }
     } catch (error) {
       console.error("Errore nel caricamento messaggi:", error);
+      alert(error)
     }
   };
 
@@ -661,11 +664,18 @@ const onLongPress = (e: any, msg_id: number | string) => {
               )}
 
               {msg.quoted_msg.msg_type === 4 && (
-                <img
-                  src={videoIcon}
-                  alt="quoted video"
-                  className="w-24 h-24 object-cover rounded"
-                />
+                <div className="relative w-24 h-24">
+                  <img 
+                    src={msg.quoted_msg.message!.split("####")[1]} 
+                    alt="Video" 
+                    className="w-24 h-24 rounded"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
               )}
 
             </div>
@@ -761,13 +771,21 @@ const onLongPress = (e: any, msg_id: number | string) => {
           <Link to={goBackLink} className="mr-4 text-2xl">
             ←
           </Link>
-          <div className="flex flex-col items-start">
-          <h2 className="text-lg font-semibold">{targetUser?.nickname || "Chat"}</h2>
-          {(isOnline == true) && (
-            <span className="text-sm font-semibold text-blue-500">
-              Online
-            </span>
-          )}
+          <div className="flex items-center space-x-3">
+            <img
+              src={targetUser?.avatar_url || defaultAvatarIcon}
+              alt={`${targetUser?.nickname || "User"} avatar`}
+              className="cursor-pointer w-10 h-10 rounded-full object-cover border border-gray-300"
+              onClick={() => setPreview(targetUser?.avatar_url || defaultAvatarIcon)}
+            />
+            <div className="flex flex-col items-start">
+              <h2 className="text-lg font-semibold">
+                {targetUser?.nickname || "Chat"}
+              </h2>
+              {isOnline && (
+                <span className="text-sm font-semibold text-blue-500">Online</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -839,6 +857,31 @@ const onLongPress = (e: any, msg_id: number | string) => {
 
         </div>
       </div>
+
+      {preview && (
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80 z-30"
+        onClick={() => setPreview(null)}
+      >
+        <div
+          className="relative max-w-full max-h-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setPreview(null)}
+            className="absolute top-2 right-2 text-white text-2xl font-bold z-40 hover:text-gray-300"
+          >
+            ✕
+          </button>
+
+          <img
+            src={preview}
+            alt="Avatar preview"
+            className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+          />
+        </div>
+      </div>
+    )}
 
       {showGeoWarningModal && (
         <div
@@ -1078,7 +1121,18 @@ const onLongPress = (e: any, msg_id: number | string) => {
             )}
 
             {(quotedMessage.msg_type == 4) && (
-              <img src={videoIcon} alt="Video" className="w-12 h-12" />
+              <div className="relative w-12 h-12">
+                <img 
+                  src={quotedMessage.message!.split("####")[1]} 
+                  alt="Video" 
+                  className="w-12 h-12 rounded"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
             )}
 
           </span>

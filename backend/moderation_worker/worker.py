@@ -5,6 +5,7 @@ import json
 import tempfile
 import requests
 from nudenet import NudeDetector
+from PIL import Image, ImageSequence
 from unsafe_labels import UNSAFE_LABELS
 
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
@@ -47,7 +48,7 @@ def send_violation(job_data: Dict, results: Dict):
     }
 
     resp = requests.post(
-        f"{NODE_BACKEND_URL}/moderation/remove_message",
+        f"{NODE_BACKEND_URL}/moderation/remove-data",
         headers={
             "Authorization": f"Bearer {MODERATION_SECRET}",
             "Content-Type": "application/json"
@@ -60,14 +61,33 @@ def send_violation(job_data: Dict, results: Dict):
 
 
 def process_image(job_data):
+    # scarica l'immagine
     resp = requests.get(job_data['url_media'], stream=True)
     resp.raise_for_status()
 
-    with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
+    # prendi l'estensione dal file originale
+    ext = os.path.splitext(job_data['url_media'])[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".gif"]:
+        ext = ".tmp"
+
+    with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
         for chunk in resp.iter_content(chunk_size=8192):
             tmp.write(chunk)
         tmp.flush()
-        results = detector.detect(tmp.name)
+
+        img = Image.open(tmp.name)
+
+        # GIF animate
+        if getattr(img, "is_animated", False):
+            results = []
+            for i, frame in enumerate(ImageSequence.Iterator(img)):
+                with tempfile.NamedTemporaryFile(suffix=".png") as frame_tmp:
+                    frame.save(frame_tmp.name)
+                    frame_tmp.flush()
+                    results.append(detector.detect(frame_tmp.name))
+        else:
+            results = detector.detect(tmp.name)
+
     return results
 
 def process_video(job_data):
@@ -130,9 +150,7 @@ def process_job(job_data: Dict):
             print(results)
             send_violation(job_data, results)
         else:
-            # se è un video, procedi con l'ottimizzazione.
-        
-            print(f"Message {job_data['message_id']} OK - nessun contenuto vietato")
+            print(f"Message OK - nessun contenuto vietato")
     except Exception as e:
         print(f"Errore in process_job: {e}")
 

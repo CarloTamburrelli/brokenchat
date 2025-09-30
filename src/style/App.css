@@ -40,29 +40,28 @@
   color: #681da8;
 }
 
-
 @keyframes typing {
-  0% {
-    width: 0;
-  }
-  100% {
-    width: 100%;
-  }
+  from { width: 0; }
+  to { width: 100%; }
 }
 
-.typing-effect {
-  white-space: normal;   /* Assicura che il testo vada a capo */
-  word-wrap: break-word;  /* Impedisce che parole troppo lunghe escano dal contenitore */
-  overflow-wrap: break-word; /* Gestisce il wrapping delle parole */
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 3px solid #000; /* Simula il cursore */
-  animation: typing 4s steps(30) 1s 1 normal both, blink 0.75s step-end infinite;
+@keyframes deleting {
+  from { width: 100%; }
+  to { width: 0; }
 }
 
 @keyframes blink {
-  50% {
-    border-color: transparent;
-  }
+  50% { border-color: transparent; }
+}
+
+.typing-effect {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap; /* importantissimo per steps() */
+  border-right: 3px solid #000;
+  width: 0; /* parte da 0 e cresce con l'animazione */
+  animation: 
+    typing 4s steps(30) 1s 1 forwards,
+    deleting 3s steps(30) 5s 1 forwards,
+    blink 0.75s step-end infinite;
 }

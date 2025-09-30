@@ -13,6 +13,7 @@ import HeaderBrokenChat from './HeaderBrokenChat';
 import NicknameModal from './NicknameModal';
 import GlobalChat from './GlobalChat';
 import { Chatroom, GroupedChats, MessageData } from '../../types';
+import AvatarModal from './AvatarModal';
 
 export default function Home() {
 
@@ -41,8 +42,8 @@ export default function Home() {
   const [globalMessages, setGlobalMessages] = useState<MessageData[]>([]);
   const [totalUsersGlobalChat, setTotalUsersGlobalChat] = useState<number>(0); 
   const [globalChatName, setGlobalChatName] = useState<string>('Global Chat');
-
-  const [animate, setAnimate] = useState<boolean>(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   usePushNotifications(userId!, true) //web notification
@@ -72,6 +73,12 @@ export default function Home() {
       console.error(error);
       alert("Something went wrong. Please try again.");
     }
+  };
+
+  const handleChangeAvatar =  (url: string | null) => {
+    setAvatarUrl(url)
+    setShowToastMessage("Avatar uploaded successfully, pending moderation");
+    setTimeout(() => setShowToastMessage(null), 3000);
   };
 
   const handleChangeNickname = async () => {
@@ -140,6 +147,9 @@ export default function Home() {
           console.log("Total users online: ", response.totalUsersOnline)
           setTotalUsersGlobalChat(response.total_users_global_chat.length); 
         }
+        if (response.avatar_url !== null) {
+          setAvatarUrl(response.avatar_url)
+        }
       } else {
         //è un utente non registrato - imposto latitude e longitude before db
         if (lat && lon) {
@@ -180,6 +190,7 @@ export default function Home() {
             {
               id: newMessage.id,
               nickname: newMessage.nickname,
+              avatar_url: newMessage.avatar_url,
               message: newMessage.text,
               date: newMessage.created_at,
               alert_message: false,
@@ -301,7 +312,6 @@ export default function Home() {
 
 
   useEffect(() => {
-    setAnimate(true);
 
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeStr(welcomeMessages[randomIndex]);
@@ -402,17 +412,18 @@ export default function Home() {
         />
       
         <HeaderBrokenChat
+          openAvatarModal={() => setShowAvatarModal(true)}
           headerRef={headerRef}
           alreadyJoined={nickname}
           nickname={nickname}
           welcomeStr={welcomeStr}
-          animate={animate}
           unreadPrivateMessagesCount={unreadPrivateMessagesCount}
           openNicknameModal={openNicknameModal}
           lat={lat}
           lon={lon}
           selectedFilter={selectedFilter}
           setSelectedFilter={setSelectedFilter}
+          currentAvatarUrl={avatarUrl}
         />
 
         <ChatList 
@@ -432,6 +443,14 @@ export default function Home() {
         setTmpNickname={setTmpNickname}
         onClose={() => setShowNicknameModal(false)}
         onConfirm={handleChangeNickname}
+      />
+    )}
+
+    {showAvatarModal && (
+      <AvatarModal
+        currentAvatarUrl={avatarUrl}
+        onClose={() => setShowAvatarModal(false)}
+        onAvatarUpdated={handleChangeAvatar}
       />
     )}
 

@@ -24,12 +24,12 @@ import LoadingSpinner from './LoadingSpinner';
 import usePushNotifications from '../utils/usePushNotifications';
 import CameraCapture from './CameraCapture';
 import microphoneIcon from "../assets/audio.png";
-import videoIcon from "../assets/video.png";
 import { getPosition } from '../utils/geolocation';
 import { generateColorFromId } from '../utils/generateColorFromId';
 import { ChatData, MessageData, UserData } from '../types';
 import { MAX_PUBLIC_ROOM_MESSAGE } from '../utils/consts';
 import { ReportModal } from './ReportModal';
+import defaultAvatarIcon from "../assets/default_avatar.png";
 
 
 function BaseWaiting(content: React.ReactNode) {
@@ -57,6 +57,7 @@ function ChatPage() {
   const [message, setMessage] = useState<string>('');
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [nickname, setNickname] = useState<string>('');
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [admin, setAdmin] = useState<UserData | null>(null);
   const [profileToShow, setProfileToShow] = useState<UserData | null>(null);
@@ -80,6 +81,8 @@ function ChatPage() {
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [unreadPrivateMessagesCount, setUnreadPrivateMessagesCount] = useState<number>(0);
   const [reportOpen, setReportOpen] = useState<MessageData | UserData | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
 
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
@@ -174,13 +177,14 @@ function ChatPage() {
         setUnreadPrivateMessagesCount(response_json.unread_private_messages_count)
 
         setNickname(response_json.chat.nickname);
-        //setDescription(response_json.chat.description)
+        setAvatar(response_json.chat.avatar_url);
         setUserId(response_json.chat.user_id);
 
         setAdmin({
           id: response_json.chat.user_admin_id,
           nickname: response_json.chat.nickname_admin,
           subscription: formatDate(response_json.chat.user_admin_subscription),
+          avatar_url: response_json.chat.avatar_admin
         })
 
         setMessages(response_json.messages);
@@ -201,11 +205,14 @@ function ChatPage() {
 
         socket.on('broadcast_messages', (newMessage) => {
 
+          console.log("in arrivo...", newMessage )
+
           setMessages((prevMessages) => [
             ...prevMessages,
             {
               id: newMessage.id,
               nickname: newMessage.nickname,
+              avatar_url: newMessage.avatar_url,
               message: newMessage.text,
               date: newMessage.created_at,
               alert_message: false,
@@ -259,6 +266,7 @@ function ChatPage() {
                   id: generateUniqueId(),
                   nickname: null, 
                   message: message,
+                  avatar_url: null,
                   alert_message: true,
                   date: null,
                   user_id: null,
@@ -378,12 +386,14 @@ function ChatPage() {
       const newMessage: { 
         user_id: number | null; 
         nickname: string; 
+        avatar_url: string | null; 
         text: string; 
         quoted_msg?: any; // Permette quoted_msg opzionale
         msg_type: number;
       } = { 
         user_id: userId, 
         nickname: nickname, 
+        avatar_url: avatar,
         text: message,
         msg_type: 1,
       };
@@ -509,6 +519,7 @@ function ChatPage() {
         id: userIdToShow,
         nickname: response_json.user.nickname,
         subscription: formatDate(response_json.user.subscription),
+        avatar_url: response_json.user.avatar_url,
       })
     } catch (error: any) {
       alert('Errore nel recupero dei dati dell\'utente:'+error.message);
@@ -752,7 +763,7 @@ function ChatPage() {
         <div
           key={msg.id}
           className={`select-none w-full relative flex ${msg.user_id === userId ? "justify-end" : "justify-start"} ${isSameUserAsPrevious ? "pt-1" : "pt-3"}
-            ${selectedMessageId === msg.id ? "bg-gray-800" : ""}
+            ${selectedMessageId === msg.id ? "bg-gray-800 " : ""}
           `}
         >
           {/* Div invisibile per catturare long press sull'intera riga (solo se NON mio messaggio) */}
@@ -763,10 +774,29 @@ function ChatPage() {
             <div className="w-full h-full" {...longPressEvent(msg.id)} />
           </div>
           )}
+
+          {/* Avatar */}
+          <div
+            className={`z-10 w-8 h-8 pt-3 mx-1 ${
+              msg.user_id === userId ? "order-2" : "order-1"
+            }`}
+          >
+            {!isSameUserAsPrevious && (
+              <img
+                onClick={() => msg.user_id ? onUserClicked(msg.user_id) : null}
+                onTouchEnd={() => msg.user_id ? onUserClicked(msg.user_id): null}
+                src={msg.avatar_url || defaultAvatarIcon}
+                alt={`${msg.nickname}'s avatar`}
+                className={`${msg.user_id !== userId && "cursor-pointer"} z-10 w-8 h-8 rounded-full object-cover border border-gray-400`}
+                style={{pointerEvents: "auto"}}
+              />
+            )}
+          </div>
+
         <div 
           key={msg.id} 
-          className={`px-2 flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
-            ${msg.user_id === userId ? "ml-auto justify-end" : "mr-auto justify-start"}
+          className={`px-1 flex rounded-md max-w-[75%] md:max-w-[50%] bg-grey-200 lg:max-w-[50%] 
+            ${msg.user_id === userId ? "ml-auto justify-end order-1" : "mr-auto justify-start order-2"}
             ${isSameUserAsPrevious ? "pt-1": "pt-3"}
             ${selectedMessageId === msg.id ? "bg-gray-800 no-select pointer-events-none" : "bg-transparent"}`}
         >
@@ -908,11 +938,18 @@ function ChatPage() {
 
 
               {msg.quoted_msg.msg_type === 4 && (
-                <img
-                  src={videoIcon}
-                  alt="quoted video"
-                  className="w-24 h-24 object-cover rounded"
-                />
+                <div className="relative w-24 h-24">
+                  <img 
+                    src={msg.quoted_msg.message!.split("####")[1]} 
+                    alt="Video" 
+                    className="w-24 h-24 rounded"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
               )}
 
             </div>
@@ -1039,35 +1076,52 @@ function ChatPage() {
       )}
 
 {profileToShow && (
-        <div
-        className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
-        onClick={() => setProfileToShow(null)} // Chiude la modal cliccando all’esterno
-      >
-        <div
-          className="bg-white p-5 rounded-lg shadow-lg w-96 relative text-left"
-          onClick={(e) => e.stopPropagation()} // Impedisce la chiusura se clicchi dentro la modal
+  <div
+    className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-20"
+    onClick={() => setProfileToShow(null)}
+  >
+    <div
+      className="bg-white p-5 rounded-lg shadow-lg w-96 relative text-left"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header con avatar + nickname */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center space-x-3">
+          <img
+            src={profileToShow.avatar_url || defaultAvatarIcon}
+            alt="Avatar"
+            className="w-12 h-12 rounded-full cursor-pointer object-cover"
+            onClick={() =>
+              setPreview(profileToShow.avatar_url || defaultAvatarIcon)
+            }
+          />
+          <h2 className="text-xl font-bold text-gray-900">
+            {profileToShow?.nickname}'s profile
+          </h2>
+        </div>
+        <button
+          onClick={() => setProfileToShow(null)}
+          className="text-gray-500 hover:text-black text-2xl font-semibold"
         >
-          {/* Header con titolo e pulsante di chiusura */}
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">{profileToShow?.nickname}'s profile</h2>
-            <button
-              onClick={() => setProfileToShow(null)}
-              className="text-gray-500 hover:text-black text-2xl font-semibold"
-            >
-              ✕
-            </button>
-          </div>
-      
-          {/* Dettagli Profilo */}
-          <div className="text-sm text-gray-800 space-y-2">
-            <div><span className="font-semibold">Registered on:</span> {profileToShow.subscription || "Data non disponibile"}</div>
-          </div>
+          ✕
+        </button>
+      </div>
 
-          <div className="mt-4 flex items-center justify-center space-x-4">
-      
-          {(chatData!.am_i_admin == 1) && (
-            <>
-            {banUsersList.includes(`${profileToShow.nickname}####${profileToShow.id}`) ? (
+      {/* Dettagli Profilo */}
+      <div className="text-sm text-gray-800 space-y-2">
+        <div>
+          <span className="font-semibold">Registered on:</span>{" "}
+          {profileToShow.subscription || "Data non disponibile"}
+        </div>
+      </div>
+
+      {/* Azioni */}
+      <div className="mt-4 flex items-center justify-center space-x-4">
+        {(chatData!.am_i_admin == 1) && (
+          <>
+            {banUsersList.includes(
+              `${profileToShow.nickname}####${profileToShow.id}`
+            ) ? (
               <div className="py-2 text-red-600 flex items-center justify-center">
                 <span>Already banned</span>
               </div>
@@ -1080,20 +1134,55 @@ function ChatPage() {
               </button>
             )}
           </>
-          )}
-            <button onClick={() => setReportOpen(profileToShow)} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-800 flex items-center justify-center space-x-2">
-                <img src={report} alt="Re Icon" className="w-5 h-5" />
-            </button>
-            <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
-              <Link to={`/private-messages/new/${profileToShow.id}?goback=${chatId}`} className="flex items-center space-x-2">
-                <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
-                <span className="text-sm whitespace-nowrap">Private message</span>
-              </Link>
-            </button>
-          </div>
-        </div>
+        )}
+
+        <button
+          onClick={() => setReportOpen(profileToShow)}
+          className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-800 flex items-center justify-center space-x-2"
+        >
+          <img src={report} alt="Report Icon" className="w-5 h-5" />
+        </button>
+
+        <button className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center justify-center space-x-2">
+          <Link
+            to={`/private-messages/new/${profileToShow.id}?goback=${chatId}`}
+            className="flex items-center space-x-2"
+          >
+            <img src={chat_now} alt="Chat Icon" className="w-5 h-5" />
+            <span className="text-sm whitespace-nowrap">Private message</span>
+          </Link>
+        </button>
       </div>
-      )}
+    </div>
+  </div>
+)}
+
+
+{preview && (
+  <div
+    className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80 z-30"
+    onClick={() => setPreview(null)}
+  >
+    <div
+      className="relative max-w-full max-h-full"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={() => setPreview(null)}
+        className="absolute top-2 right-2 text-white text-2xl font-bold z-40 hover:text-gray-300"
+      >
+        ✕
+      </button>
+
+      <img
+        src={preview}
+        alt="Avatar preview"
+        className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+      />
+    </div>
+  </div>
+)}
+
 
 {isLoadingConverting && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -1322,7 +1411,18 @@ function ChatPage() {
               )}
 
               {(quotedMessage.msg_type == 4) && (
-                <img src={videoIcon} alt="Video" className="w-12 h-12" />
+                <div className="relative w-12 h-12">
+                  <img 
+                    src={quotedMessage.message!.split("####")[1]} 
+                    alt="Video" 
+                    className="w-12 h-12 rounded"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
               )}
               </span>
             

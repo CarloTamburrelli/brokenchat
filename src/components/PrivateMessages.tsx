@@ -7,6 +7,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { socket } from "../utils/socket";
 import microphoneIcon from "../assets/audio.png";
 import { UserConversation } from "../types";
+import defaultAvatarIcon from "../assets/default_avatar.png";
 
 
 const PrivateMessages = () => {
@@ -130,18 +131,24 @@ const PrivateMessages = () => {
         <Link to={`/private-messages/${conversation.last_message ? conversation.id : `new/${conversation.user_id}`}`}>
         <div className="flex justify-between items-start w-full">
           <div className="text-left max-w-[100%]">
-            <strong className="text-lg block mb-1">
-              {conversation.nickname}
-              {(conversation.read == false) && (
-                <span className="ml-2 text-xs text-white bg-blue-500 px-2 py-1 rounded-full">
-                  New
-                </span>
-              )}
-            </strong>
+            <div className="flex items-center gap-2 mb-1">
+              {/* Avatar */}
+              <img
+                src={conversation.avatar_url || defaultAvatarIcon}
+                alt={`${conversation.nickname} avatar`}
+                className="w-8 h-8 rounded-full object-cover border border-gray-300"
+              />
 
-            {(conversation.is_online == true) && (<div className="text-xs font-semibold inline-block text-blue-500 mb-2">
-              Online
-            </div>)}
+              {/* Nome + badge */}
+              <strong className="text-lg block">
+                {conversation.nickname}
+                {(conversation.read == false) && (
+                  <span className="ml-2 text-xs text-white bg-blue-500 px-2 py-1 rounded-full">
+                    New
+                  </span>
+                )}
+              </strong>
+            </div>
             
             {conversation.last_message_type === 1 && conversation.last_message && (
               <div className="flex items-center gap-2 text-sm text-gray-600">

@@ -39,7 +39,7 @@ const handleRecoverySet = () => {
   };
 
   return (
-    <div ref={menuRef} className="absolute top-1 right-2 z-50">
+    <div ref={menuRef} className="absolute top-1 right-2 z-5">
 
       <Menu as="div" className="relative inline-block text-left">
       {/* Bottone 3 puntini */}

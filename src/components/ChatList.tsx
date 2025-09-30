@@ -62,7 +62,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
           ))}
           <Link
             to="/create-chat"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-50"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-10"
             aria-label="Create new chat"
           >
             <img src={add_chat} alt="Add chat" className="w-8 h-8" />
@@ -102,7 +102,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
           ))}
           <Link
             to="/create-chat"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-50"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-10"
             aria-label="Create new chat"
           >
             <img src={add_chat} alt="Add chat" className="w-8 h-8" />
@@ -149,7 +149,7 @@ const ChatList: React.FC<ChatListProps> = ({ myChats, nearbyChats, popularChats,
           ))}
           <Link
             to="/create-chat"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-50"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center w-10 h-10 rounded-full bg-white hover:bg-blue-500 text-white text-4xl shadow-lg z-10"
             aria-label="Create new chat"
           >
             <img src={add_chat} alt="Add chat" className="w-8 h-8" />
