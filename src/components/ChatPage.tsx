@@ -357,8 +357,12 @@ function ChatPage() {
 
     if (firstLoad) {
       // Se è il primo caricamento, scrolla sempre in fondo
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      setFirstLoad(false); // Dopo il primo scroll, disattiva il comportamento
+      if (messages.length > 0) {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        }, 50);
+      }
+      setFirstLoad(false);
     } else {
 
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
@@ -366,7 +370,6 @@ function ChatPage() {
       const offset = 150
 
       //console.log("CALLCOLO", scrollHeight, clientHeight, scrollHeight-clientHeight, scrollTop, scrollTop+ offset);
-
 
       if ((scrollHeight - clientHeight) <=  scrollTop + offset) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

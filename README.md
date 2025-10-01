@@ -9,7 +9,6 @@ Geolocalized chat system that finds the closest chats in your area.
 
 - Criptaggio informazioni per chat private
 - forse fare colore del logo come il colore che hanno i messaggi (quel blu scuro)?
-- risolvi problema scrolling a metà quando entri nella chat, non mi piace, dovrebbe sempre arrivare alla fine!
 
 --- non so se non è complicato ok --- altrimenti durante documenti avvocati
 - fai delle prove, sembrerebbe che la compressione FOTO non sia così efficace...

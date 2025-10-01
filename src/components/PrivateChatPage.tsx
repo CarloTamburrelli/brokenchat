@@ -133,12 +133,14 @@ useEffect(() => {
 
     if (!chatContainerRef.current) return;
 
-    if (messages && messages.length == 0) return;
-
     if (firstLoad) {
       // Se è il primo caricamento, scrolla sempre in fondo
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      setFirstLoad(false); // Dopo il primo scroll, disattiva il comportamento
+      if (messages.length > 0) {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        }, 50);
+      }
+      setFirstLoad(false);
     } else {
 
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
@@ -1011,6 +1013,10 @@ const onLongPress = (e: any, msg_id: number | string) => {
           <h2 className="text-lg font-semibold mb-2">
             Private chat with <span className="text-2xl">{targetUser?.nickname}</span>
           </h2>
+          <p className="text-sm italic mb-2">
+            ⚠️ Do not share sensitive information such as credit card numbers or passwords. 
+            BrokenChat administrators will never contact you via private chat, so do not trust anyone claiming otherwise.
+          </p>
           <p className="text-sm italic">Only the last {MAX_PRIVATE_ROOM_MESSAGE} messages are saved in the chat.</p>
         </div>
 

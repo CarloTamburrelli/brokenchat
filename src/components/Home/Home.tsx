@@ -14,6 +14,7 @@ import NicknameModal from './NicknameModal';
 import GlobalChat from './GlobalChat';
 import { Chatroom, GroupedChats, MessageData } from '../../types';
 import AvatarModal from './AvatarModal';
+import contact_us from '../../assets/contact_us.png';
 
 export default function Home() {
 
@@ -356,8 +357,22 @@ export default function Home() {
   if (banStatus == 2) {
   return (
     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+      <div className="flex justify-center">
+        <LogoBlock />
+      </div>
       <strong className="font-bold">Access denied! </strong>
       <span className="block sm:inline">You have been permanently banned.</span>
+
+      <p className="mt-2 text-red-700 text-sm">
+        If you believe this ban was unjustified, please contact us at this email 
+        including your nickname and we will conduct the appropriate investigation.
+        <img
+          src={contact_us}
+          alt="Email contact"
+          className="inline-block h-7 align-middle ml-1"
+          draggable={false}
+        />
+      </p>
     </div>
   );
 }
